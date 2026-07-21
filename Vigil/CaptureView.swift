@@ -17,7 +17,8 @@ struct CaptureView: View {
                     recordingMode: camera.selectedMode
                 )
                     .ignoresSafeArea(edges: .top)
-            } else {
+            } else if camera.readiness != .idle,
+                      camera.readiness != .requestingPermission {
                 unavailableView
             }
 
@@ -49,24 +50,16 @@ struct CaptureView: View {
             }
             .padding(.horizontal, 20)
         }
-        .overlay(alignment: .bottom) {
-            if let message = model.bannerMessage {
-                Text(message)
-                    .font(.footnote.weight(.semibold))
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 10)
-                    .background(.ultraThinMaterial, in: Capsule())
-                    .padding(.bottom, 132)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .task(id: message) {
-                        try? await Task.sleep(for: .seconds(3))
-                        if model.bannerMessage == message {
-                            withAnimation { model.bannerMessage = nil }
-                        }
-                    }
-            }
+        .task(id: model.captureNotice) {
+            guard let notice = model.captureNotice,
+                  notice.automaticallyClears else { return }
+            try? await Task.sleep(for: .seconds(4))
+            withAnimation { model.clearCaptureNotice(notice) }
         }
-        .animation(.easeInOut, value: model.bannerMessage)
+        .animation(.easeInOut(duration: 0.42), value: model.captureNotice)
+        .animation(.easeInOut(duration: 0.38), value: camera.isRecording)
+        .animation(.easeInOut(duration: 0.38), value: camera.isFinalizing)
+        .animation(.easeInOut(duration: 0.38), value: camera.isChangingMode)
         .animation(.easeInOut(duration: 0.15), value: screenCurtain.isActive)
         .background {
             ThreeFingerTripleTapRecognizer(
@@ -99,34 +92,150 @@ struct CaptureView: View {
 
     @ViewBuilder
     private var recordingStatus: some View {
-        if camera.isRecording, let start = camera.recordingStartedAt {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                VStack(spacing: 7) {
+        VStack(spacing: 7) {
+            if camera.isRecording, let start = camera.recordingStartedAt {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
                     Text(elapsed(from: start, to: context.date))
                         .font(.system(size: 34, weight: .medium, design: .monospaced))
-                    Label("RECORDING ON THIS IPHONE", systemImage: "record.circle.fill")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(.red)
+                        .shadow(color: .black.opacity(0.75), radius: 3)
                 }
-            }
-        } else if screenCurtain.isActive {
-            VStack(spacing: 7) {
-                Image(systemName: "rectangle.fill.on.rectangle.fill")
-                    .font(.title3)
-                Text("SCREEN CURTAIN")
-                    .font(.caption.weight(.bold))
-                Text("Three-finger triple-tap to reveal")
-                    .font(.caption2)
-            }
-            .foregroundStyle(.secondary)
-        } else {
-            VStack(spacing: 6) {
+                .transition(.opacity)
+            } else if screenCurtain.isActive {
+                Text("Screen Curtain")
+                    .font(.title3.weight(.semibold))
+                    .shadow(color: .black.opacity(0.75), radius: 3)
+                    .transition(.opacity)
+            } else if model.captureNotice == nil,
+                      !camera.isFinalizing,
+                      !camera.isChangingMode,
+                      camera.readiness == .ready {
                 Text("Ready when you are")
                     .font(.title3.weight(.semibold))
-                Text("Tap once to begin recording")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                    .shadow(color: .black.opacity(0.75), radius: 3)
+                    .transition(.opacity)
+            } else {
+                Color.clear
+                    .frame(height: 28)
+                    .transition(.opacity)
             }
+
+            if camera.isRecording {
+                statusLine(
+                    recordingLine,
+                    icon: "circle.fill",
+                    color: .red
+                )
+            } else if camera.isFinalizing {
+                statusLine("Saving recording…", color: .white, showsProgress: true)
+            } else if camera.isChangingMode {
+                statusLine("Switching camera…", color: .white, showsProgress: true)
+            } else if let notice = model.captureNotice {
+                if let destinations = notice.savedDestinations {
+                    savedDestinationsLine(destinations)
+                } else {
+                    statusLine(
+                        notice.title,
+                        icon: noticeIcon(for: notice.tone),
+                        color: noticeColor(for: notice.tone),
+                        showsProgress: notice.tone == .progress
+                    )
+                }
+            } else if screenCurtain.isActive {
+                statusLine(
+                    "Triple-tap to reveal",
+                    icon: "eye.slash.fill",
+                    color: .white
+                )
+            } else if camera.readiness == .ready {
+                statusLine("Tap once to begin recording", color: .secondary)
+            }
+        }
+        .frame(height: 94, alignment: .bottom)
+    }
+
+    private var recordingLine: String {
+        guard let notice = model.captureNotice,
+              notice.tone == .success else { return "Recording" }
+        return "Recording · \(notice.title)"
+    }
+
+    private func statusLine(
+        _ text: String,
+        icon: String? = nil,
+        color: Color,
+        showsProgress: Bool = false
+    ) -> some View {
+        ZStack {
+            HStack(spacing: 8) {
+                if showsProgress {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(color)
+                } else if let icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 11, weight: .bold))
+                }
+
+                Text(text)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.82)
+            }
+            .id(text)
+            .transition(.opacity)
+        }
+        .frame(maxWidth: .infinity, minHeight: 20)
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(color)
+        .shadow(color: .black.opacity(0.85), radius: 3)
+        .animation(.easeInOut(duration: 0.42), value: text)
+        .accessibilityElement(children: .combine)
+        .transition(.opacity)
+    }
+
+    private func savedDestinationsLine(_ destinations: [String]) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 11, weight: .bold))
+
+            Text("Saved to Vault")
+
+            ForEach(destinations.filter { $0 != "Vault" }, id: \.self) { destination in
+                Text("+ \(destination)")
+                    .transition(
+                        .asymmetric(
+                            insertion: .opacity.combined(with: .offset(x: -6)),
+                            removal: .opacity
+                        )
+                    )
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 20)
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(.green)
+        .lineLimit(1)
+        .minimumScaleFactor(0.82)
+        .shadow(color: .black.opacity(0.85), radius: 3)
+        .animation(.easeInOut(duration: 0.5), value: destinations)
+        .accessibilityElement(children: .combine)
+        .transition(.opacity)
+    }
+
+    private func noticeIcon(for tone: CaptureNotice.Tone) -> String? {
+        switch tone {
+        case .progress: nil
+        case .success: "checkmark.circle.fill"
+        case .warning: "exclamationmark.circle.fill"
+        case .error: "xmark.circle.fill"
+        case .information: "info.circle.fill"
+        }
+    }
+
+    private func noticeColor(for tone: CaptureNotice.Tone) -> Color {
+        switch tone {
+        case .progress, .information: .white
+        case .success: .green
+        case .warning: .orange
+        case .error: .red
         }
     }
 
@@ -148,7 +257,7 @@ struct CaptureView: View {
 
     private var recordButton: some View {
         Button {
-            camera.isRecording ? camera.stopRecording() : camera.startRecording()
+            model.toggleRecording()
         } label: {
             ZStack {
                 Circle()

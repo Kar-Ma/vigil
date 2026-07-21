@@ -14,9 +14,9 @@ enum PhotoLibraryAccess: Equatable {
     var detail: String {
         switch self {
         case .notDetermined:
-            "Add an optional copy to Photos. Permission is requested when enabled."
+            "Add a copy to Photos. Permission is requested when enabled."
         case .allowed:
-            "Add an optional copy to Photos after every recording."
+            "Add a copy to Photos."
         case .denied:
             "Photos permission is off. Open iPhone Settings to allow adding photos."
         case .restricted:

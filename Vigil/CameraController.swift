@@ -468,7 +468,10 @@ final class CameraController: NSObject, ObservableObject {
     }
 
     private func recoverCaptureSessionAndResumeIfPossible() {
-        guard isAppActive else { return }
+        guard isAppActive,
+              readiness != .idle,
+              readiness != .requestingPermission,
+              !session.inputs.isEmpty else { return }
 
         if !session.isRunning {
             session.startRunning()

@@ -26,7 +26,7 @@ enum RecordingMode: String, CaseIterable, Identifiable {
     var detail: String {
         switch self {
         case .rear:
-            "Records what is happening in front of you."
+            "Uses less power."
         case .front:
             "Records you and what is behind you."
         case .dual:

@@ -10,59 +10,11 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isShowingVault = false
     @State private var isWaitingToOpenVault = false
+    @State private var isShowingActionButtonSetup = false
 
     var body: some View {
         NavigationStack {
             List {
-                Section {
-                    ForEach(RecordingMode.allCases) { mode in
-                        recordingModeRow(mode)
-                    }
-                } header: {
-                    Text("Default recording mode")
-                } footer: {
-                    Text("You can temporarily change the mode on the Record screen before recording begins. Rear Camera is the most reliable and uses less power.")
-                }
-
-                Section {
-                    HStack(spacing: 14) {
-                        destinationIcon("rectangle.fill.on.rectangle.fill", color: .indigo)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Screen Curtain gesture")
-                                .font(.body.weight(.semibold))
-                            Text("Three-finger triple-tap on Record to hide the live preview and dim the display.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Toggle("Screen Curtain gesture", isOn: screenCurtainBinding)
-                            .labelsHidden()
-                    }
-                    .padding(.vertical, 4)
-                } header: {
-                    Text("Privacy controls")
-                } footer: {
-                    Text("Recording status and the stop control remain visible. When VoiceOver is on, Apple’s own Screen Curtain gesture takes priority.")
-                }
-
-                Section {
-                    HStack(spacing: 14) {
-                        destinationIcon("button.programmable", color: .orange)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Action Button")
-                                .font(.body.weight(.semibold))
-                            Text("Assign “Start Vigil Recording” in iPhone Settings → Action Button → Shortcut.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                } header: {
-                    Text("Quick access")
-                } footer: {
-                    Text("Press and hold the Action Button to open Vigil and start recording. Your iPhone may ask you to unlock first.")
-                }
-
                 Section {
                     Button {
                         openVault()
@@ -95,34 +47,69 @@ struct SettingsView: View {
                         }
                     }
 
+                    googleDriveRow
+
                     comingSoonRow(
                         icon: "icloud.fill",
                         color: .cyan,
                         title: "iCloud",
-                        detail: "Protect a copy in your private iCloud storage."
-                    )
-
-                    destinationRow(
-                        icon: "externaldrive.connected.to.line.below",
-                        color: .green,
-                        title: "Google Drive",
-                        detail: googleDrive.statusDetail,
-                        isOn: googleDriveBinding,
-                        disabled: googleDrive.isConnecting
+                        detail: "Save a copy to your private iCloud storage."
                     )
                 } header: {
                     Text("Save every recording to")
-                } footer: {
-                    Text("Vigil Vault is always on. Camera Roll and Google Drive create additional copies; they never replace the protected Vault recording.")
                 }
 
-                Section("Privacy note") {
-                    Label {
-                        Text("Camera Roll copies are visible in Photos. Google Drive copies are sent to the connected account. Vigil Vault copies stay inside the app and use iPhone file protection.")
-                    } icon: {
-                        Image(systemName: "hand.raised.fill")
-                            .foregroundStyle(.orange)
+                Section {
+                    ForEach(RecordingMode.allCases) { mode in
+                        recordingModeRow(mode)
                     }
+                } header: {
+                    Text("Default recording mode")
+                }
+
+                Section {
+                    HStack(spacing: 14) {
+                        destinationIcon("rectangle.fill.on.rectangle.fill", color: .indigo)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Screen Curtain gesture")
+                                .font(.body.weight(.semibold))
+                            Text("Three-finger triple-tap on Record to hide the live preview and dim the display.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Toggle("Screen Curtain gesture", isOn: screenCurtainBinding)
+                            .labelsHidden()
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text("Privacy controls")
+                }
+
+                Section {
+                    Button {
+                        isShowingActionButtonSetup = true
+                    } label: {
+                        HStack(spacing: 14) {
+                            destinationIcon("button.programmable", color: .orange)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Action Button")
+                                    .font(.body.weight(.semibold))
+                                Text("Set it to open Vigil and start recording.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .contentShape(Rectangle())
+                        .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.plain)
+                } header: {
+                    Text("Quick access")
                 }
             }
             .navigationTitle("Settings")
@@ -133,6 +120,11 @@ struct SettingsView: View {
             }
             .navigationDestination(isPresented: $isShowingVault) {
                 VaultView(model: model, access: vaultAccess)
+            }
+            .alert("Set up the Action Button", isPresented: $isShowingActionButtonSetup) {
+                Button("Done", role: .cancel) {}
+            } message: {
+                Text("Open iPhone Settings → Action Button. Swipe to Shortcut, tap Choose a Shortcut, then select “Start Vigil Recording.”")
             }
         }
         .onChange(of: vaultAccess.isUnlocked) { _, isUnlocked in
@@ -239,6 +231,72 @@ struct SettingsView: View {
                 .disabled(disabled)
         }
         .padding(.vertical, 4)
+    }
+
+    private var googleDriveRow: some View {
+        HStack(spacing: 14) {
+            destinationIcon("externaldrive.connected.to.line.below", color: .green)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Google Drive")
+                    .font(.body.weight(.semibold))
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                if let accountEmail = googleDrive.accountEmail {
+                    Button {
+                        googleDrive.openVigilFolder()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                            Text(accountEmail)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            if googleDrive.isOpeningFolder {
+                                ProgressView()
+                                    .controlSize(.mini)
+                            } else {
+                                Image(systemName: "arrow.up.right")
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(googleDrive.isOpeningFolder)
+                    .accessibilityLabel("Open Vigil folder in Google Drive")
+                } else {
+                    Text(googleDriveDetail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+            }
+            Spacer()
+            Toggle("Google Drive", isOn: googleDriveBinding)
+                .labelsHidden()
+                .disabled(googleDrive.isConnecting)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var googleDriveDetail: String {
+        if googleDrive.isConnecting {
+            return "Connecting…"
+        }
+        if googleDrive.activeUploadCount > 0 {
+            return "Uploading to Google Drive…"
+        }
+        if let accountEmail = googleDrive.accountEmail {
+            return accountEmail
+        }
+        if let error = googleDrive.lastErrorMessage {
+            return error
+        }
+        return "Save a copy to a Vigil folder."
     }
 
     private func destinationIcon(_ name: String, color: Color) -> some View {

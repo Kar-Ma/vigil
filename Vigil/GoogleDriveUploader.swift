@@ -8,14 +8,14 @@ nonisolated struct GoogleDriveUploader: Sendable {
         createdAt: Date,
         accessToken: String
     ) async throws {
-        let folderID = try await findOrCreateFolder(accessToken: accessToken)
+        let folder = try await findOrCreateFolder(accessToken: accessToken)
         let fileSize = try fileURL.resourceValues(forKeys: [.fileSizeKey]).fileSize
         guard let fileSize, fileSize > 0 else {
             throw GoogleDriveUploadError.unreadableFile
         }
 
         let sessionURL = try await createResumableSession(
-            folderID: folderID,
+            folderID: folder.id,
             filename: remoteFilename(for: createdAt),
             fileSize: fileSize,
             accessToken: accessToken
@@ -31,7 +31,16 @@ nonisolated struct GoogleDriveUploader: Sendable {
         try validate(response: response, data: data)
     }
 
-    private func findOrCreateFolder(accessToken: String) async throws -> String {
+    func folderURL(accessToken: String) async throws -> URL {
+        let folder = try await findOrCreateFolder(accessToken: accessToken)
+        guard let link = folder.webViewLink,
+              let url = URL(string: link) else {
+            throw GoogleDriveUploadError.missingFolderLink
+        }
+        return url
+    }
+
+    private func findOrCreateFolder(accessToken: String) async throws -> DriveFile {
         var components = URLComponents(string: "https://www.googleapis.com/drive/v3/files")
         components?.queryItems = [
             URLQueryItem(
@@ -39,7 +48,7 @@ nonisolated struct GoogleDriveUploader: Sendable {
                 value: "name = '\(folderName)' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
             ),
             URLQueryItem(name: "spaces", value: "drive"),
-            URLQueryItem(name: "fields", value: "files(id,name)"),
+            URLQueryItem(name: "fields", value: "files(id,name,webViewLink)"),
             URLQueryItem(name: "pageSize", value: "1")
         ]
         guard let url = components?.url else {
@@ -52,14 +61,14 @@ nonisolated struct GoogleDriveUploader: Sendable {
         try validate(response: response, data: data)
 
         if let existing = try JSONDecoder().decode(DriveFileList.self, from: data).files.first {
-            return existing.id
+            return existing
         }
 
         return try await createFolder(accessToken: accessToken)
     }
 
-    private func createFolder(accessToken: String) async throws -> String {
-        guard let url = URL(string: "https://www.googleapis.com/drive/v3/files?fields=id") else {
+    private func createFolder(accessToken: String) async throws -> DriveFile {
+        guard let url = URL(string: "https://www.googleapis.com/drive/v3/files?fields=id,name,webViewLink") else {
             throw GoogleDriveUploadError.invalidResponse
         }
 
@@ -73,7 +82,7 @@ nonisolated struct GoogleDriveUploader: Sendable {
 
         let (data, response) = try await URLSession.shared.data(for: request)
         try validate(response: response, data: data)
-        return try JSONDecoder().decode(DriveFile.self, from: data).id
+        return try JSONDecoder().decode(DriveFile.self, from: data)
     }
 
     private func createResumableSession(
@@ -141,6 +150,7 @@ nonisolated private struct DriveFileList: Decodable, Sendable {
 
 nonisolated private struct DriveFile: Decodable, Sendable {
     let id: String
+    let webViewLink: String?
 }
 
 nonisolated private struct GoogleAPIErrorEnvelope: Decodable, Sendable {
@@ -155,6 +165,7 @@ nonisolated enum GoogleDriveUploadError: LocalizedError, Sendable {
     case invalidResponse
     case unreadableFile
     case missingUploadSession
+    case missingFolderLink
     case service(String)
 
     var errorDescription: String? {
@@ -165,6 +176,8 @@ nonisolated enum GoogleDriveUploadError: LocalizedError, Sendable {
             "The completed recording could not be read for upload."
         case .missingUploadSession:
             "Google Drive did not create an upload session."
+        case .missingFolderLink:
+            "Google Drive did not provide a link to the Vigil folder."
         case .service(let message):
             message
         }

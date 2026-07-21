@@ -17,7 +17,7 @@ struct StartVigilRecordingIntent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult {
-        QuickRecordingRequest.submit()
+        await QuickRecordingRequest.submit()
         return .result()
     }
 }

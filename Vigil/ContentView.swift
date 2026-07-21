@@ -30,7 +30,6 @@ struct ContentView: View {
         }
         .task(id: scenePhase) {
             guard scenePhase == .active else { return }
-            model.camera.appDidBecomeActive()
             handleQuickRecordingRequest()
             await model.start()
             model.camera.appDidBecomeActive()

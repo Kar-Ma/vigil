@@ -8,6 +8,7 @@ final class GoogleDriveManager: ObservableObject {
 
     @Published private(set) var isEnabled: Bool
     @Published private(set) var isConnecting = false
+    @Published private(set) var isOpeningFolder = false
     @Published private(set) var activeUploadCount = 0
     @Published private(set) var accountEmail: String?
     @Published private(set) var lastErrorMessage: String?
@@ -26,8 +27,8 @@ final class GoogleDriveManager: ObservableObject {
         if activeUploadCount > 0 {
             return "Uploading a protected copy to Google Drive…"
         }
-        if isEnabled, let accountEmail {
-            return "Connected as \(accountEmail). New recordings upload automatically."
+        if let accountEmail {
+            return accountEmail
         }
         if let lastErrorMessage {
             return lastErrorMessage
@@ -36,7 +37,7 @@ final class GoogleDriveManager: ObservableObject {
     }
 
     func restoreConnection() async {
-        guard isEnabled else { return }
+        guard !isConnecting else { return }
         isConnecting = true
         defer { isConnecting = false }
 
@@ -45,9 +46,11 @@ final class GoogleDriveManager: ObservableObject {
             guard user.grantedScopes?.contains(Self.driveFileScope) == true else {
                 throw GoogleDriveConnectionError.permissionMissing
             }
-            applyConnectedUser(user)
+            applyConnectedUser(user, enableUploads: isEnabled)
         } catch {
-            disableConnection(signOut: false)
+            let uploadsWereEnabled = isEnabled
+            clearConnection(signOut: false)
+            lastErrorMessage = uploadsWereEnabled ? friendlyMessage(for: error) : nil
         }
     }
 
@@ -55,7 +58,14 @@ final class GoogleDriveManager: ObservableObject {
         guard shouldEnable != isEnabled else { return }
 
         if !shouldEnable {
-            disableConnection(signOut: true)
+            setUploadPreference(false)
+            lastErrorMessage = nil
+            return
+        }
+
+        if let user = GIDSignIn.sharedInstance.currentUser,
+           user.grantedScopes?.contains(Self.driveFileScope) == true {
+            applyConnectedUser(user, enableUploads: true)
             return
         }
 
@@ -90,6 +100,37 @@ final class GoogleDriveManager: ObservableObject {
         }
     }
 
+    func openVigilFolder() {
+        guard accountEmail != nil, !isOpeningFolder else { return }
+        isOpeningFolder = true
+        lastErrorMessage = nil
+
+        Task { [weak self] in
+            await self?.resolveAndOpenVigilFolder()
+        }
+    }
+
+    private func resolveAndOpenVigilFolder() async {
+        defer { isOpeningFolder = false }
+
+        do {
+            let user = try await refreshedUser()
+            let folderURL = try await uploader.folderURL(
+                accessToken: user.accessToken.tokenString
+            )
+            let didOpen = await withCheckedContinuation { continuation in
+                UIApplication.shared.open(folderURL, options: [:]) { didOpen in
+                    continuation.resume(returning: didOpen)
+                }
+            }
+            if !didOpen {
+                throw GoogleDriveConnectionError.cannotOpenFolder
+            }
+        } catch {
+            lastErrorMessage = friendlyMessage(for: error)
+        }
+    }
+
     private func connectInteractively() async {
         defer { isConnecting = false }
 
@@ -101,27 +142,30 @@ final class GoogleDriveManager: ObservableObject {
             guard user.grantedScopes?.contains(Self.driveFileScope) == true else {
                 throw GoogleDriveConnectionError.permissionMissing
             }
-            applyConnectedUser(user)
+            applyConnectedUser(user, enableUploads: true)
         } catch {
-            disableConnection(signOut: false)
+            clearConnection(signOut: false)
             lastErrorMessage = friendlyMessage(for: error)
         }
     }
 
-    private func applyConnectedUser(_ user: GIDGoogleUser) {
-        isEnabled = true
+    private func applyConnectedUser(_ user: GIDGoogleUser, enableUploads: Bool) {
         accountEmail = user.profile?.email
         lastErrorMessage = nil
-        UserDefaults.standard.set(true, forKey: enabledDefaultsKey)
+        setUploadPreference(enableUploads)
     }
 
-    private func disableConnection(signOut: Bool) {
+    private func setUploadPreference(_ isOn: Bool) {
+        isEnabled = isOn
+        UserDefaults.standard.set(isOn, forKey: enabledDefaultsKey)
+    }
+
+    private func clearConnection(signOut: Bool) {
         if signOut {
             GIDSignIn.sharedInstance.signOut()
         }
-        isEnabled = false
+        setUploadPreference(false)
         accountEmail = nil
-        UserDefaults.standard.set(false, forKey: enabledDefaultsKey)
     }
 
     private func signIn(presenting viewController: UIViewController) async throws -> GIDGoogleUser {
@@ -220,6 +264,7 @@ enum GoogleDriveConnectionError: LocalizedError {
     case signInFailed
     case permissionMissing
     case notConnected
+    case cannotOpenFolder
 
     var errorDescription: String? {
         switch self {
@@ -231,6 +276,8 @@ enum GoogleDriveConnectionError: LocalizedError {
             "Allow Vigil to create its own Google Drive files to enable this option."
         case .notConnected:
             "Connect Google Drive in Settings before uploading."
+        case .cannotOpenFolder:
+            "The Vigil folder could not be opened. Please try again."
         }
     }
 }

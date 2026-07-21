@@ -32,7 +32,7 @@ Vigil does not currently request location permission or collect location for a r
 
 iCloud is marked “Coming Soon” and does not receive recordings in the current UI. The repository includes disabled CloudKit experimentation for future development; it is not active in the shipped MVP configuration.
 
-Google Drive is optional. Uploading begins only after iOS has finalized a recording; Vigil does not currently stream an in-progress recording or retry uploads durably in the background. Turning Google Drive off signs out the local Google session and stops new uploads. It does not delete copies already uploaded, and it is not represented as revoking the app’s grant from the person’s Google Account.
+Google Drive is optional. Uploading begins only after iOS has finalized a recording; Vigil does not currently stream an in-progress recording or retry uploads durably in the background. Turning Google Drive off stops new uploads but keeps the Google account connected so the option can be enabled again without signing in. It does not delete copies already uploaded or revoke Vigil’s grant from the person’s Google Account. A person can revoke that access separately from their Google Account.
 
 Any future cloud feature must document what is uploaded, when it is uploaded, who can access it, how deletion works, and whether the provider can read the recording before that feature is enabled.
 

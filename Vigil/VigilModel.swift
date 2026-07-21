@@ -1,6 +1,33 @@
 import Combine
 import Foundation
 
+struct CaptureNotice: Equatable {
+    enum Tone: Equatable {
+        case progress
+        case success
+        case warning
+        case error
+        case information
+    }
+
+    let title: String
+    let tone: Tone
+    let automaticallyClears: Bool
+    let savedDestinations: [String]?
+
+    init(
+        _ title: String,
+        tone: Tone,
+        automaticallyClears: Bool = true,
+        savedDestinations: [String]? = nil
+    ) {
+        self.title = title
+        self.tone = tone
+        self.automaticallyClears = automaticallyClears
+        self.savedDestinations = savedDestinations
+    }
+}
+
 final class VigilModel: ObservableObject {
     @Published private(set) var recordings: [VigilRecording] = []
     @Published private(set) var iCloudAvailability: ICloudAvailability = .checking
@@ -10,7 +37,7 @@ final class VigilModel: ObservableObject {
     @Published private(set) var cameraRollAccess: PhotoLibraryAccess = .notDetermined
     @Published private(set) var saveToICloud: Bool
     @Published private(set) var defaultRecordingMode: RecordingMode
-    @Published var bannerMessage: String?
+    @Published private(set) var captureNotice: CaptureNotice?
 
     let googleDrive = GoogleDriveManager()
 
@@ -20,10 +47,16 @@ final class VigilModel: ObservableObject {
             self?.recordingFinished(result)
         }
         camera.onRecordingProtectedFromInterruption = { [weak self] in
-            self?.bannerMessage = "Interruption detected. Protecting the current recording."
+            self?.captureNotice = CaptureNotice(
+                "Protecting recording…",
+                tone: .progress
+            )
         }
         camera.onRecordingResumedAfterInterruption = { [weak self] in
-            self?.bannerMessage = "Recording resumed in a new protected clip."
+            self?.captureNotice = CaptureNotice(
+                "Previous clip protected",
+                tone: .success
+            )
         }
         return camera
     }()
@@ -58,13 +91,20 @@ final class VigilModel: ObservableObject {
     }
 
     func requestQuickRecording() {
-        guard !camera.isRecording else {
-            bannerMessage = "Vigil is already recording."
-            return
-        }
+        guard !camera.isRecording else { return }
 
         hasPendingQuickRecording = true
         fulfillPendingQuickRecordingIfPossible()
+    }
+
+    func toggleRecording() {
+        captureNotice = nil
+        camera.isRecording ? camera.stopRecording() : camera.startRecording()
+    }
+
+    func clearCaptureNotice(_ notice: CaptureNotice) {
+        guard captureNotice == notice else { return }
+        captureNotice = nil
     }
 
     func refreshICloud() async {
@@ -86,7 +126,10 @@ final class VigilModel: ObservableObject {
             cameraRollAccess = await photoLibrarySaver.requestAccess()
             applyCameraRollPreference(cameraRollAccess.canSave)
             if !cameraRollAccess.canSave {
-                bannerMessage = "Allow Photos access in iPhone Settings to save Camera Roll copies."
+                captureNotice = CaptureNotice(
+                    "Photos off · Vault remains active",
+                    tone: .warning
+                )
             }
         }
     }
@@ -105,7 +148,10 @@ final class VigilModel: ObservableObject {
             saveProtectedIDs()
             reloadRecordings()
         } catch {
-            bannerMessage = "This recording could not be deleted."
+            captureNotice = CaptureNotice(
+                "Couldn’t delete recording",
+                tone: .error
+            )
         }
     }
 
@@ -120,11 +166,17 @@ final class VigilModel: ObservableObject {
             protectedIDs.insert(recording.id)
             saveProtectedIDs()
             iCloudAvailability = .available
-            bannerMessage = "Recording protected in iCloud."
+            captureNotice = CaptureNotice(
+                "Saved to iCloud",
+                tone: .success
+            )
             return true
         } catch {
             iCloudAvailability = .notConfigured(CloudUploader.friendlyMessage(for: error))
-            bannerMessage = "Saved on this iPhone. iCloud upload is waiting for setup."
+            captureNotice = CaptureNotice(
+                "iCloud waiting · Safe in Vault",
+                tone: .warning
+            )
             return false
         }
     }
@@ -137,10 +189,19 @@ final class VigilModel: ObservableObject {
         switch result {
         case .success(let url):
             reloadRecordings()
-            bannerMessage = "Recording saved to your private vault."
-            Task { await saveToSelectedDestinations(recordingURL: url) }
+            let hasAdditionalCopies = saveToCameraRoll || googleDrive.isEnabled
+            captureNotice = saveNotice(
+                for: ["Vault"],
+                automaticallyClears: !hasAdditionalCopies
+            )
+            if hasAdditionalCopies {
+                Task { await saveToSelectedDestinations(recordingURL: url) }
+            }
         case .failure:
-            bannerMessage = "Recording could not be saved. Please try again."
+            captureNotice = CaptureNotice(
+                "Recording couldn’t be saved · Try again",
+                tone: .error
+            )
         }
     }
 
@@ -151,21 +212,32 @@ final class VigilModel: ObservableObject {
         case .ready:
             guard !camera.isFinalizing, !camera.isChangingMode else { return }
             hasPendingQuickRecording = false
+            captureNotice = nil
             camera.startRecording()
-            if camera.isRecording {
-                bannerMessage = "Recording started from Quick Access."
-            } else {
-                bannerMessage = "Recording could not start. Please tap the record button."
+            if !camera.isRecording {
+                captureNotice = CaptureNotice(
+                    "Recording couldn’t start · Try again",
+                    tone: .error
+                )
             }
         case .denied:
             hasPendingQuickRecording = false
-            bannerMessage = "Allow camera and microphone access before using Quick Access."
+            captureNotice = CaptureNotice(
+                "Camera access is off",
+                tone: .warning
+            )
         case .callInProgress:
             hasPendingQuickRecording = false
-            bannerMessage = "Recording video is not available while on a call."
+            captureNotice = CaptureNotice(
+                "Video unavailable during call",
+                tone: .warning
+            )
         case .unavailable, .failed:
             hasPendingQuickRecording = false
-            bannerMessage = "The camera is not available for Quick Access right now."
+            captureNotice = CaptureNotice(
+                "Camera unavailable · Try again",
+                tone: .error
+            )
         case .idle, .requestingPermission:
             break
         }
@@ -178,17 +250,18 @@ final class VigilModel: ObservableObject {
     }
 
     private func saveToSelectedDestinations(recordingURL: URL) async {
-        var savedDestinations = ["Vigil Vault"]
+        var savedDestinations = ["Vault"]
         var failedDestinations: [String] = []
 
         if saveToCameraRoll {
             do {
                 try await photoLibrarySaver.saveVideo(at: recordingURL)
                 cameraRollAccess = .allowed
-                savedDestinations.append("Camera Roll")
+                savedDestinations.append("Photos")
+                showSaveProgress(savedDestinations)
             } catch {
                 refreshCameraRollAccess()
-                failedDestinations.append("Camera Roll")
+                failedDestinations.append("Photos")
             }
         }
 
@@ -197,18 +270,48 @@ final class VigilModel: ObservableObject {
             uploadingIDs.insert(recordingID)
             do {
                 try await googleDrive.uploadRecording(at: recordingURL, createdAt: Date())
-                savedDestinations.append("Google Drive")
+                savedDestinations.append("Drive")
+                showSaveProgress(savedDestinations)
             } catch {
-                failedDestinations.append("Google Drive")
+                failedDestinations.append("Drive")
             }
             uploadingIDs.remove(recordingID)
         }
 
         if failedDestinations.isEmpty {
-            bannerMessage = "Saved to \(savedDestinations.joined(separator: " and "))."
+            captureNotice = saveNotice(for: savedDestinations)
         } else {
-            bannerMessage = "\(failedDestinations.joined(separator: " and ")) save failed. The Vigil Vault copy is safe."
+            let failedName = failedDestinations.joined(separator: " + ")
+            captureNotice = CaptureNotice(
+                "\(failedName) failed · \(saveStatusText(for: savedDestinations))",
+                tone: .warning
+            )
         }
+    }
+
+    private func showSaveProgress(_ destinations: [String]) {
+        captureNotice = saveNotice(for: destinations, automaticallyClears: false)
+    }
+
+    private func saveNotice(
+        for destinations: [String],
+        automaticallyClears: Bool = true
+    ) -> CaptureNotice {
+        let orderedDestinations = orderedSaveDestinations(destinations)
+        return CaptureNotice(
+            saveStatusText(for: orderedDestinations),
+            tone: .success,
+            automaticallyClears: automaticallyClears,
+            savedDestinations: orderedDestinations
+        )
+    }
+
+    private func saveStatusText(for destinations: [String]) -> String {
+        "Saved to \(orderedSaveDestinations(destinations).joined(separator: " + "))"
+    }
+
+    private func orderedSaveDestinations(_ destinations: [String]) -> [String] {
+        ["Vault", "Drive", "Photos"].filter(destinations.contains)
     }
 
     private func refreshCameraRollAccess() {
