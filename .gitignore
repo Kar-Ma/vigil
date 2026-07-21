@@ -8,5 +8,16 @@ DerivedData/
 # Build outputs
 build/
 *.ipa
+*.xcarchive
+*.dSYM
 *.dSYM.zip
 
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.p12
+*.p8
+*.pem
+*.key
+*.mobileprovision

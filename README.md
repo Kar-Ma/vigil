@@ -1,50 +1,83 @@
 # Vigil
 
-Vigil is an open-source iOS safety app for preserving recordings of important moments. Its goal is to make evidence harder to lose if a phone is taken, lost, or damaged.
+Vigil is an open-source iOS safety app for recording important moments and making the resulting video harder to lose or casually access.
 
-This repository is an early prototype built during OpenAI Build Week. It is not yet a finished personal-safety product.
+> [!WARNING]
+> Vigil is an early prototype, not a finished emergency or evidence-preservation service. Do not rely on it as the only way to protect a recording, contact emergency services, or establish authenticity in a legal proceeding.
 
-## What works today
+## Why Vigil
+
+In a stressful encounter, a person may need to record quickly while worrying that their phone could be taken, damaged, or searched. Vigil is exploring a simple recording experience with protected local storage and optional copies in destinations the person controls.
+
+The project is being developed in public so its privacy and security claims can be inspected rather than taken on trust.
+
+## Current MVP
 
 - One-tap video and audio recording on a physical iPhone
-- Every recording stored inside the always-on Vigil Vault with iPhone file protection
-- Face ID or iPhone passcode required once when opening the Vigil Vault
-- Playback, file size, saved date, upload state, and guarded deletion
-- Optional Camera Roll copies
-- Standard iOS share sheet for unlocked recordings
-- Optional Camera Roll saving that requests Photos permission when enabled
-- A Settings screen with an always-on Vigil Vault, plus iCloud and Google Drive marked “Coming soon”
-- A local fallback copy when an external save fails
+- Every completed recording saved to the always-on Vigil Vault
+- Face ID or the iPhone passcode required to open the Vault tab
+- iPhone file protection applied to the Vault directory and recordings
+- Playback, sharing, and deletion after the Vault is unlocked
+- Optional copies saved to the iPhone Camera Roll
+- iCloud and Google Drive destinations shown as “Coming Soon”
+- No accounts, ads, analytics, third-party SDKs, or developer-operated server
 
 ## Important limitations
 
+- The current build records only the back camera. Simultaneous front-and-back recording is planned for supported devices.
+- A recording is protected only after iOS finishes writing the video file. Force-quitting the app, losing power, or interrupting an active recording can prevent that file from being finalized.
+- Recordings are not currently uploaded while recording. Taking or destroying the phone before another copy is created can still destroy the evidence.
+- The Vault authentication screen is an in-app access barrier, not a claim of tamper-proof or forensic-grade storage.
+- Deleting Vigil also deletes its local Vault. Camera Roll copies can be viewed and deleted from Photos.
+- Vigil does not currently create cryptographic proof of when, where, or by whom a recording was made.
+- Recording laws vary by location. The person recording is responsible for understanding the rules that apply to them.
 - The iOS Simulator has no usable camera; recording must be tested on an iPhone.
-- CloudKit code is implemented but not exposed yet; iCloud remains “Coming soon” until the project has an Apple Developer membership and iCloud entitlement.
-- iCloud upload begins after a recording finishes. A later version should upload encrypted segments while recording.
-- This prototype records the back camera. Simultaneous front-and-back recording is planned for supported devices.
+
+See [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md) for the current data flow and threat model.
 
 ## Run the app
 
-1. Open `Vigil.xcodeproj` in Xcode.
-2. Select the Vigil target, then choose your Apple development team under Signing & Capabilities.
-3. Connect and select an iPhone.
-4. Press Run and allow camera and microphone access.
+### Requirements
 
-The project targets iOS 18 or later and uses only Apple frameworks.
+- A Mac with Xcode
+- An iPhone running iOS 18 or later
+- An Apple ID configured in Xcode; a paid Apple Developer membership is not required for basic device testing
 
-## Enable CloudKit after membership activation
+### Steps
 
-1. In Signing & Capabilities, add the iCloud capability.
-2. Enable CloudKit and select or create `iCloud.com.karma.vigil`.
-3. Add `CLOUDKIT_ENABLED` under Swift Active Compilation Conditions for Debug and Release.
-4. Run on a signed device, enable iCloud in Vigil Settings, and make a short test recording.
+1. Clone this repository.
+2. Open `Vigil.xcodeproj` in Xcode.
+3. Select the Vigil target and choose your own Apple development team under **Signing & Capabilities**.
+4. If Xcode reports that `com.karma.vigil` is unavailable, change the bundle identifier to a unique value.
+5. Connect and select an unlocked iPhone.
+6. Press **Run**, then allow camera and microphone access.
+7. Enable **Camera Roll** in Vigil Settings if you want an additional Photos copy.
 
-Cloud recordings use each person's private CloudKit database. They are not placed in a developer-owned shared video bucket.
+The app uses Apple frameworks and has no package dependencies.
 
-## Built with Codex
+## Roadmap
 
-Codex using GPT-5.6 helped turn the product idea into the SwiftUI app structure, camera pipeline, protected local storage, CloudKit upload path, settings model, crash diagnosis, and build verification. Development decisions and limitations are documented openly so the project can be reviewed and improved by the community.
+- Recover interrupted recordings using short, independently playable segments
+- Encrypt and upload segments while recording
+- Add private iCloud storage
+- Add user-controlled Google Drive storage
+- Support simultaneous front-and-back capture on compatible iPhones
+- Add integrity metadata and an exportable chain-of-custody record
+- Expand automated tests and physical-device coverage
+- Complete accessibility and localization reviews
+
+The repository contains an experimental CloudKit path, but it is disabled and not exposed in the current UI. It must not be described as working protection until its entitlements, failure recovery, and physical-device behavior have been tested.
 
 ## Contributing
 
-Issues and pull requests are welcome. Please avoid presenting this prototype as guaranteed evidence protection until interruption recovery, encrypted segmented uploads, authentication, and extensive device testing are complete.
+Thoughtful issues and pull requests are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) before proposing changes, and avoid overstating the protection offered by an untested feature.
+
+Security concerns should follow the private process in [SECURITY.md](SECURITY.md), not a public issue containing exploit details.
+
+## Built during OpenAI Build Week
+
+The initial prototype was built during OpenAI Build Week with help from Codex using GPT-5.6. Codex assisted with the SwiftUI structure, camera pipeline, protected storage, permissions, crash diagnosis, and build verification. Product decisions and limitations remain documented for public review.
+
+## License
+
+Vigil is available under the [MIT License](LICENSE).
