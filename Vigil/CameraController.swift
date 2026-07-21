@@ -1,6 +1,8 @@
 import AVFoundation
+import CallKit
 import Combine
 import Foundation
+import UIKit
 
 enum CameraReadiness: Equatable {
     case idle
@@ -8,6 +10,7 @@ enum CameraReadiness: Equatable {
     case ready
     case denied
     case unavailable
+    case callInProgress
     case failed(String)
 }
 
@@ -18,20 +21,30 @@ final class CameraController: NSObject, ObservableObject {
     @Published private(set) var isChangingMode = false
     @Published private(set) var recordingStartedAt: Date?
     @Published private(set) var selectedMode: RecordingMode
-    @Published private(set) var session: AVCaptureSession
+    @Published private(set) var session: AVCaptureSession {
+        didSet { observeSessionInterruptions() }
+    }
 
     let isDualCameraSupported: Bool
     let primaryPreviewLayer = AVCaptureVideoPreviewLayer()
     let secondaryPreviewLayer = AVCaptureVideoPreviewLayer()
     var onRecordingFinished: ((Result<URL, Error>) -> Void)?
+    var onRecordingProtectedFromInterruption: (() -> Void)?
+    var onRecordingResumedAfterInterruption: (() -> Void)?
 
     private let movieOutput = AVCaptureMovieFileOutput()
     private let dualProcessor = DualCameraProcessor()
+    private let callObserver = CXCallObserver()
     private var isPersistentMultiCamConfigured = false
     private var backOutputConnection: AVCaptureConnection?
     private var frontOutputConnection: AVCaptureConnection?
     private var backPreviewConnection: AVCaptureConnection?
     private var frontPreviewConnection: AVCaptureConnection?
+    private var sessionObserverTokens: [NSObjectProtocol] = []
+    private var shouldResumeAfterInterruption = false
+    private var isAppActive = true
+    private var finalizationBackgroundTask: UIBackgroundTaskIdentifier = .invalid
+    private var callRecoveryTask: Task<Void, Never>?
 
     init(initialMode: RecordingMode) {
         isDualCameraSupported = AVCaptureMultiCamSession.isMultiCamSupported
@@ -43,6 +56,15 @@ final class CameraController: NSObject, ObservableObject {
 
         primaryPreviewLayer.videoGravity = .resizeAspectFill
         secondaryPreviewLayer.videoGravity = .resizeAspectFill
+        callObserver.setDelegate(self, queue: .main)
+        observeSessionInterruptions()
+    }
+
+    deinit {
+        callRecoveryTask?.cancel()
+        for token in sessionObserverTokens {
+            NotificationCenter.default.removeObserver(token)
+        }
     }
 
     func prepare() async {
@@ -51,7 +73,9 @@ final class CameraController: NSObject, ObservableObject {
                 session.startRunning()
                 readiness = session.isRunning
                     ? .ready
-                    : .failed("The camera session could not restart.")
+                    : unavailableReadiness(
+                        defaultMessage: "The camera session could not restart."
+                    )
             }
             return
         }
@@ -74,7 +98,7 @@ final class CameraController: NSObject, ObservableObject {
 
     private var isRetryableFailure: Bool {
         if case .failed = readiness { return true }
-        return false
+        return readiness == .callInProgress
     }
 
     func selectMode(_ mode: RecordingMode) {
@@ -116,6 +140,7 @@ final class CameraController: NSObject, ObservableObject {
             }
             isRecording = true
             recordingStartedAt = startedAt
+            shouldResumeAfterInterruption = false
         } catch {
             readiness = .failed(error.localizedDescription)
         }
@@ -134,7 +159,24 @@ final class CameraController: NSObject, ObservableObject {
                 }
             }
         } else if movieOutput.isRecording {
+            isRecording = false
+            isFinalizing = true
+            recordingStartedAt = nil
             movieOutput.stopRecording()
+        }
+    }
+
+    func appWillLeaveForeground() {
+        isAppActive = false
+        protectActiveRecordingFromInterruption()
+    }
+
+    func appDidBecomeActive() {
+        isAppActive = true
+        if !hasActiveCall, readiness == .callInProgress || shouldResumeAfterInterruption {
+            scheduleRecoveryAfterCall()
+        } else {
+            recoverCaptureSessionAndResumeIfPossible()
         }
     }
 
@@ -155,11 +197,13 @@ final class CameraController: NSObject, ObservableObject {
             }
 
             session.startRunning()
-            readiness = session.isRunning ? .ready : .failed("The camera session could not start.")
+            readiness = session.isRunning
+                ? .ready
+                : unavailableReadiness(defaultMessage: "The camera session could not start.")
         } catch CameraConfigurationError.cameraUnavailable {
             readiness = .unavailable
         } catch {
-            readiness = .failed(error.localizedDescription)
+            readiness = unavailableReadiness(defaultMessage: error.localizedDescription)
         }
     }
 
@@ -411,6 +455,143 @@ final class CameraController: NSObject, ObservableObject {
             )
         }
         onRecordingFinished?(result)
+        endFinalizationBackgroundTask()
+        recoverCaptureSessionAndResumeIfPossible()
+    }
+
+    private func protectActiveRecordingFromInterruption() {
+        guard isRecording else { return }
+        shouldResumeAfterInterruption = true
+        beginFinalizationBackgroundTask()
+        onRecordingProtectedFromInterruption?()
+        stopRecording()
+    }
+
+    private func recoverCaptureSessionAndResumeIfPossible() {
+        guard isAppActive else { return }
+
+        if !session.isRunning {
+            session.startRunning()
+        }
+        guard session.isRunning, !session.isInterrupted else {
+            readiness = unavailableReadiness(
+                defaultMessage: "The camera session could not restart."
+            )
+            return
+        }
+
+        readiness = .ready
+        resumeRecordingAfterInterruptionIfNeeded()
+    }
+
+    private func resumeRecordingAfterInterruptionIfNeeded() {
+        guard shouldResumeAfterInterruption, !isRecording, !isFinalizing else { return }
+        startRecording()
+        if isRecording {
+            onRecordingResumedAfterInterruption?()
+        } else {
+            shouldResumeAfterInterruption = true
+        }
+    }
+
+    private func handleCallStateChanged() {
+        if hasActiveCall {
+            callRecoveryTask?.cancel()
+            if !session.isRunning || session.isInterrupted {
+                readiness = .callInProgress
+            }
+            return
+        }
+
+        scheduleRecoveryAfterCall()
+    }
+
+    private func scheduleRecoveryAfterCall() {
+        callRecoveryTask?.cancel()
+        callRecoveryTask = Task { @MainActor [weak self] in
+            guard let self, self.isAppActive, !self.hasActiveCall else { return }
+            self.readiness = .requestingPermission
+
+            let retryDelays: [Duration] = [.milliseconds(350), .seconds(1), .seconds(2)]
+            for delay in retryDelays {
+                try? await Task.sleep(for: delay)
+                guard !Task.isCancelled, self.isAppActive, !self.hasActiveCall else { return }
+                guard !self.isFinalizing else { continue }
+
+                if self.restartCaptureSessionAfterCall() {
+                    return
+                }
+            }
+
+            self.readiness = .failed(
+                "The camera is still recovering after the call. Leave Vigil and return to try again."
+            )
+        }
+    }
+
+    private func restartCaptureSessionAfterCall() -> Bool {
+        if session.isRunning {
+            session.stopRunning()
+        }
+        session.startRunning()
+
+        guard session.isRunning, !session.isInterrupted else { return false }
+        readiness = .ready
+        resumeRecordingAfterInterruptionIfNeeded()
+        return true
+    }
+
+    private var hasActiveCall: Bool {
+        callObserver.calls.contains { !$0.hasEnded }
+    }
+
+    private func unavailableReadiness(defaultMessage: String) -> CameraReadiness {
+        hasActiveCall ? .callInProgress : .failed(defaultMessage)
+    }
+
+    private func observeSessionInterruptions() {
+        for token in sessionObserverTokens {
+            NotificationCenter.default.removeObserver(token)
+        }
+        sessionObserverTokens.removeAll()
+
+        let center = NotificationCenter.default
+        let interruptedToken = center.addObserver(
+            forName: AVCaptureSession.wasInterruptedNotification,
+            object: session,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.protectActiveRecordingFromInterruption()
+            }
+        }
+        let interruptionEndedToken = center.addObserver(
+            forName: AVCaptureSession.interruptionEndedNotification,
+            object: session,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.recoverCaptureSessionAndResumeIfPossible()
+            }
+        }
+        sessionObserverTokens = [interruptedToken, interruptionEndedToken]
+    }
+
+    private func beginFinalizationBackgroundTask() {
+        guard finalizationBackgroundTask == .invalid else { return }
+        finalizationBackgroundTask = UIApplication.shared.beginBackgroundTask(
+            withName: "Finalize Vigil recording"
+        ) { [weak self] in
+            Task { @MainActor in
+                self?.endFinalizationBackgroundTask()
+            }
+        }
+    }
+
+    private func endFinalizationBackgroundTask() {
+        guard finalizationBackgroundTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(finalizationBackgroundTask)
+        finalizationBackgroundTask = .invalid
     }
 }
 
@@ -424,11 +605,27 @@ extension CameraController: AVCaptureFileOutputRecordingDelegate {
         Task { @MainActor [weak self] in
             guard let self else { return }
             if let error {
-                try? FileManager.default.removeItem(at: outputFileURL)
-                finishRecording(.failure(error))
+                let errorDetails = error as NSError
+                let didFinishSuccessfully =
+                    (errorDetails.userInfo[AVErrorRecordingSuccessfullyFinishedKey] as? NSNumber)?.boolValue
+                    ?? false
+                if didFinishSuccessfully {
+                    finishRecording(.success(outputFileURL))
+                } else {
+                    try? FileManager.default.removeItem(at: outputFileURL)
+                    finishRecording(.failure(error))
+                }
             } else {
                 finishRecording(.success(outputFileURL))
             }
+        }
+    }
+}
+
+extension CameraController: CXCallObserverDelegate {
+    nonisolated func callObserver(_ callObserver: CXCallObserver, callChanged call: CXCall) {
+        Task { @MainActor [weak self] in
+            self?.handleCallStateChanged()
         }
     }
 }

@@ -19,6 +19,12 @@ final class VigilModel: ObservableObject {
         camera.onRecordingFinished = { [weak self] result in
             self?.recordingFinished(result)
         }
+        camera.onRecordingProtectedFromInterruption = { [weak self] in
+            self?.bannerMessage = "Interruption detected. Protecting the current recording."
+        }
+        camera.onRecordingResumedAfterInterruption = { [weak self] in
+            self?.bannerMessage = "Recording resumed in a new protected clip."
+        }
         return camera
     }()
 
@@ -154,6 +160,9 @@ final class VigilModel: ObservableObject {
         case .denied:
             hasPendingQuickRecording = false
             bannerMessage = "Allow camera and microphone access before using Quick Access."
+        case .callInProgress:
+            hasPendingQuickRecording = false
+            bannerMessage = "Recording video is not available while on a call."
         case .unavailable, .failed:
             hasPendingQuickRecording = false
             bannerMessage = "The camera is not available for Quick Access right now."

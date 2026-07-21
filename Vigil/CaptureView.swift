@@ -225,6 +225,7 @@ struct CaptureView: View {
         switch camera.readiness {
         case .denied: "camera.fill.badge.ellipsis"
         case .unavailable: "iphone.gen3.slash"
+        case .callInProgress: "phone.fill"
         case .failed: "exclamationmark.triangle"
         default: "camera"
         }
@@ -235,6 +236,7 @@ struct CaptureView: View {
         case .idle, .requestingPermission: "Preparing Vigil…"
         case .denied: "Camera access is off"
         case .unavailable: "Camera unavailable"
+        case .callInProgress: "Video unavailable during call"
         case .failed: "Camera could not start"
         case .ready: "Ready"
         }
@@ -244,6 +246,8 @@ struct CaptureView: View {
         switch camera.readiness {
         case .denied: "Allow camera and microphone access in Settings to record."
         case .unavailable: "The Simulator has no usable camera. Run Vigil on your iPhone to record."
+        case .callInProgress:
+            "Recording video is not available while on a call. Vigil will resume automatically when the call ends."
         case .failed(let message): message
         default: "Checking the camera and microphone."
         }

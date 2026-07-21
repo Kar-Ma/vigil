@@ -33,6 +33,7 @@ The MVP aims to:
 - Make an optional additional copy in a folder controlled by the person in Google Drive
 - Hide the live preview with an optional Screen Curtain while retaining recording indicators and controls
 - Preserve useful non-location capture context in finalized videos and clearly distinguish the Vault original from an optional visibly stamped sharing copy
+- Finalize an active clip when camera or foreground access is interrupted and resume into a separate clip when capture becomes available again
 
 The MVP does **not** yet guarantee protection against:
 
@@ -46,6 +47,7 @@ The MVP does **not** yet guarantee protection against:
 - Fabrication, editing, removal of metadata or visible stamps, or disputes about a recording’s time, location, or authenticity
 - Loss of the phone before an external copy exists
 - Detection that recording is active; Screen Curtain does not hide iOS privacy indicators and must not be described as covert recording
+- Continuous coverage while Vigil is backgrounded or a phone call owns the camera or microphone; interruption protection necessarily leaves a gap between clips
 
 Security claims should be based on reviewed and tested behavior. The current embedded metadata and Vigil-stamped copy are contextual labels, not cryptographic verification. Google Drive currently receives completed files, not live encrypted segments. Please do not describe planned iCloud storage, live upload, encryption, segmentation, or integrity features as protection that exists today.
 
