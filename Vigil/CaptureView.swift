@@ -3,6 +3,8 @@ import SwiftUI
 struct CaptureView: View {
     @ObservedObject var model: VigilModel
     @ObservedObject var camera: CameraController
+    @ObservedObject var screenCurtain: ScreenCurtainController
+    let allowsScreenCurtainGesture: Bool
     let openSettings: () -> Void
 
     var body: some View {
@@ -27,8 +29,19 @@ struct CaptureView: View {
             .ignoresSafeArea()
             .allowsHitTesting(false)
 
+            if screenCurtain.isActive {
+                Color.black
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+
             VStack(spacing: 0) {
-                header
+                if screenCurtain.isActive {
+                    Color.clear.frame(height: 50)
+                } else {
+                    header
+                }
                 Spacer()
                 recordingStatus
                 bottomControls
@@ -54,6 +67,14 @@ struct CaptureView: View {
             }
         }
         .animation(.easeInOut, value: model.bannerMessage)
+        .animation(.easeInOut(duration: 0.15), value: screenCurtain.isActive)
+        .background {
+            ThreeFingerTripleTapRecognizer(
+                isEnabled: screenCurtain.isGestureEnabled && allowsScreenCurtainGesture,
+                onRecognized: screenCurtain.handleThreeFingerTripleTap
+            )
+            .frame(width: 0, height: 0)
+        }
     }
 
     private var header: some View {
@@ -88,6 +109,16 @@ struct CaptureView: View {
                         .foregroundStyle(.red)
                 }
             }
+        } else if screenCurtain.isActive {
+            VStack(spacing: 7) {
+                Image(systemName: "rectangle.fill.on.rectangle.fill")
+                    .font(.title3)
+                Text("SCREEN CURTAIN")
+                    .font(.caption.weight(.bold))
+                Text("Three-finger triple-tap to reveal")
+                    .font(.caption2)
+            }
+            .foregroundStyle(.secondary)
         } else {
             VStack(spacing: 6) {
                 Text("Ready when you are")
@@ -105,7 +136,9 @@ struct CaptureView: View {
 
             HStack {
                 Spacer()
-                recordingModeButton
+                if !screenCurtain.isActive {
+                    recordingModeButton
+                }
             }
         }
         .frame(maxWidth: .infinity)

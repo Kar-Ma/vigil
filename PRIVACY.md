@@ -12,6 +12,8 @@ If the Camera Roll option is enabled, Vigil asks iOS for add-only Photos permiss
 
 When a person uses the share button, iOS presents the standard share sheet. The person chooses where the recording is sent; the chosen destination’s privacy practices then apply.
 
+Screen Curtain is an optional local display-privacy control. It covers the live camera preview and temporarily dims the iPhone display; it does not change the recorded video, send data anywhere, hide iOS privacy indicators, or remove Vigil’s visible recording status. The previous display brightness is restored when the curtain closes or Vigil leaves the foreground. When VoiceOver is running, Apple’s system Screen Curtain gesture takes priority.
+
 If Google Drive is enabled, Vigil asks the person to sign in with Google and requests the `drive.file` permission. This permission lets Vigil create and manage only the files it creates or that the person explicitly opens with Vigil; it does not give Vigil general read access to the rest of the person’s Drive. After a recording is completed, Vigil creates or finds a visible `Vigil` folder in that account and uploads an additional video copy directly from the iPhone to Google. The recording does not pass through a Vigil-operated server. Google’s privacy practices apply to the sign-in session and uploaded copy.
 
 ## Permissions

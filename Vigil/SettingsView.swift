@@ -5,6 +5,7 @@ struct SettingsView: View {
     @ObservedObject var model: VigilModel
     @ObservedObject var vaultAccess: VaultAccessController
     @ObservedObject var googleDrive: GoogleDriveManager
+    @ObservedObject var screenCurtain: ScreenCurtainController
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
     @State private var isShowingVault = false
@@ -21,6 +22,27 @@ struct SettingsView: View {
                     Text("Default recording mode")
                 } footer: {
                     Text("You can temporarily change the mode on the Record screen before recording begins. Rear Camera is the most reliable and uses less power.")
+                }
+
+                Section {
+                    HStack(spacing: 14) {
+                        destinationIcon("rectangle.fill.on.rectangle.fill", color: .indigo)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Screen Curtain gesture")
+                                .font(.body.weight(.semibold))
+                            Text("Three-finger triple-tap on Record to hide the live preview and dim the display.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Toggle("Screen Curtain gesture", isOn: screenCurtainBinding)
+                            .labelsHidden()
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text("Privacy controls")
+                } footer: {
+                    Text("Recording status and the stop control remain visible. When VoiceOver is on, Apple’s own Screen Curtain gesture takes priority.")
                 }
 
                 Section {
@@ -127,6 +149,13 @@ struct SettingsView: View {
 
     private var googleDriveBinding: Binding<Bool> {
         Binding(get: { googleDrive.isEnabled }, set: { googleDrive.setEnabled($0) })
+    }
+
+    private var screenCurtainBinding: Binding<Bool> {
+        Binding(
+            get: { screenCurtain.isGestureEnabled },
+            set: { screenCurtain.setGestureEnabled($0) }
+        )
     }
 
     private func recordingModeRow(_ mode: RecordingMode) -> some View {

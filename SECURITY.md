@@ -31,6 +31,7 @@ The MVP aims to:
 - Use iPhone file protection for completed local recordings
 - Make an optional additional copy in Photos
 - Make an optional additional copy in a folder controlled by the person in Google Drive
+- Hide the live preview with an optional Screen Curtain while retaining recording indicators and controls
 
 The MVP does **not** yet guarantee protection against:
 
@@ -43,6 +44,7 @@ The MVP does **not** yet guarantee protection against:
 - Compromise of the connected Google account or access by the cloud provider
 - Fabrication, editing, or disputes about a recording’s time, location, or authenticity
 - Loss of the phone before an external copy exists
+- Detection that recording is active; Screen Curtain does not hide iOS privacy indicators and must not be described as covert recording
 
 Security claims should be based on reviewed and tested behavior. Google Drive currently receives completed files, not live encrypted segments. Please do not describe planned iCloud storage, live upload, encryption, segmentation, or integrity features as protection that exists today.
 
