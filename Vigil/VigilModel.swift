@@ -9,10 +9,11 @@ final class VigilModel: ObservableObject {
     @Published private(set) var saveToCameraRoll: Bool
     @Published private(set) var cameraRollAccess: PhotoLibraryAccess = .notDetermined
     @Published private(set) var saveToICloud: Bool
+    @Published private(set) var defaultRecordingMode: RecordingMode
     @Published var bannerMessage: String?
 
     lazy var camera: CameraController = {
-        let camera = CameraController()
+        let camera = CameraController(initialMode: defaultRecordingMode)
         camera.onRecordingFinished = { [weak self] result in
             self?.recordingFinished(result)
         }
@@ -24,10 +25,14 @@ final class VigilModel: ObservableObject {
     private let protectedDefaultsKey = "protectedRecordingIDs"
     private let cameraRollDefaultsKey = "saveToCameraRoll"
     private let iCloudDefaultsKey = "saveToICloud"
+    private let recordingModeDefaultsKey = "defaultRecordingMode"
 
     init() {
         saveToCameraRoll = UserDefaults.standard.object(forKey: cameraRollDefaultsKey) as? Bool ?? false
         saveToICloud = false
+        defaultRecordingMode = RecordingMode(
+            rawValue: UserDefaults.standard.string(forKey: recordingModeDefaultsKey) ?? ""
+        ) ?? .rear
         UserDefaults.standard.set(false, forKey: iCloudDefaultsKey)
         protectedIDs = Set(UserDefaults.standard.stringArray(forKey: protectedDefaultsKey) ?? [])
         reloadRecordings()
@@ -61,6 +66,13 @@ final class VigilModel: ObservableObject {
                 bannerMessage = "Allow Photos access in iPhone Settings to save Camera Roll copies."
             }
         }
+    }
+
+    func setDefaultRecordingMode(_ mode: RecordingMode) {
+        guard mode != .dual || camera.isDualCameraSupported else { return }
+        defaultRecordingMode = mode
+        UserDefaults.standard.set(mode.rawValue, forKey: recordingModeDefaultsKey)
+        camera.selectMode(mode)
     }
 
     func delete(_ recording: VigilRecording) {

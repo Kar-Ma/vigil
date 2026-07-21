@@ -3,18 +3,38 @@ import UIKit
 
 struct SettingsView: View {
     @ObservedObject var model: VigilModel
+    @ObservedObject var vaultAccess: VaultAccessController
     @Environment(\.openURL) private var openURL
+    @Environment(\.dismiss) private var dismiss
+    @State private var isShowingVault = false
+    @State private var isWaitingToOpenVault = false
 
     var body: some View {
         NavigationStack {
             List {
                 Section {
-                    alwaysOnRow(
-                        icon: "lock.shield.fill",
-                        color: .red,
-                        title: "Vigil Vault",
-                        detail: "Every recording is always protected inside Vigil."
-                    )
+                    ForEach(RecordingMode.allCases) { mode in
+                        recordingModeRow(mode)
+                    }
+                } header: {
+                    Text("Default recording mode")
+                } footer: {
+                    Text("You can temporarily change the mode on the Record screen before recording begins. Rear Camera is the most reliable and uses less power.")
+                }
+
+                Section {
+                    Button {
+                        openVault()
+                    } label: {
+                        alwaysOnRow(
+                            icon: "lock.shield.fill",
+                            color: .red,
+                            title: "Vigil Vault",
+                            detail: "Every recording is always protected inside Vigil."
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(vaultAccess.isAuthenticating)
 
                     destinationRow(
                         icon: "photo.on.rectangle",
@@ -63,11 +83,83 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .navigationDestination(isPresented: $isShowingVault) {
+                VaultView(model: model, access: vaultAccess)
+            }
+        }
+        .onChange(of: vaultAccess.isUnlocked) { _, isUnlocked in
+            guard isWaitingToOpenVault, isUnlocked else { return }
+            isWaitingToOpenVault = false
+            isShowingVault = true
+        }
+        .onChange(of: vaultAccess.isAuthenticating) { wasAuthenticating, isAuthenticating in
+            if wasAuthenticating, !isAuthenticating, !vaultAccess.isUnlocked {
+                isWaitingToOpenVault = false
+            }
+        }
+        .onChange(of: isShowingVault) { wasShowing, isShowing in
+            if wasShowing, !isShowing {
+                vaultAccess.lock()
+            }
+        }
+    }
+
+    private func openVault() {
+        if vaultAccess.isUnlocked {
+            isShowingVault = true
+        } else {
+            isWaitingToOpenVault = true
+            vaultAccess.unlock()
         }
     }
 
     private var cameraRollBinding: Binding<Bool> {
         Binding(get: { model.saveToCameraRoll }, set: { model.setSaveToCameraRoll($0) })
+    }
+
+    private func recordingModeRow(_ mode: RecordingMode) -> some View {
+        let isUnavailable = mode == .dual && !model.camera.isDualCameraSupported
+
+        return Button {
+            model.setDefaultRecordingMode(mode)
+        } label: {
+            HStack(spacing: 14) {
+                destinationIcon(mode.systemImage, color: mode == .dual ? .purple : .blue)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 7) {
+                        Text(mode.title)
+                            .font(.body.weight(.semibold))
+                        if mode == .rear {
+                            Text("RECOMMENDED")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(.green)
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 3)
+                                .background(.green.opacity(0.14), in: Capsule())
+                        }
+                    }
+                    Text(isUnavailable ? "Not supported on this iPhone." : mode.detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if model.defaultRecordingMode == mode {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.red)
+                }
+            }
+            .contentShape(Rectangle())
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+        .disabled(isUnavailable || model.camera.isRecording)
+        .opacity(isUnavailable ? 0.5 : 1)
     }
 
     private func destinationRow(

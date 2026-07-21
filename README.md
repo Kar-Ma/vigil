@@ -14,8 +14,11 @@ The project is being developed in public so its privacy and security claims can 
 ## Current MVP
 
 - One-tap video and audio recording on a physical iPhone
+- Rear, front, and simultaneous front-and-rear picture-in-picture recording modes on compatible iPhones
+- A saved default recording mode plus a quick mode control before recording begins
+- A camera-first interface with Settings and Vault access kept away from the primary record control
 - Every completed recording saved to the always-on Vigil Vault
-- Face ID or the iPhone passcode required to open the Vault tab
+- Face ID or the iPhone passcode required to open the Vault from Settings
 - iPhone file protection applied to the Vault directory and recordings
 - Playback, sharing, and deletion after the Vault is unlocked
 - Optional copies saved to the iPhone Camera Roll
@@ -24,7 +27,7 @@ The project is being developed in public so its privacy and security claims can 
 
 ## Important limitations
 
-- The current build records only the back camera. Simultaneous front-and-back recording is planned for supported devices.
+- Simultaneous front-and-rear capture depends on Apple MultiCam support and is unavailable on incompatible devices.
 - A recording is protected only after iOS finishes writing the video file. Force-quitting the app, losing power, or interrupting an active recording can prevent that file from being finalized.
 - Recordings are not currently uploaded while recording. Taking or destroying the phone before another copy is created can still destroy the evidence.
 - The Vault authentication screen is an in-app access barrier, not a claim of tamper-proof or forensic-grade storage.
@@ -61,7 +64,7 @@ The app uses Apple frameworks and has no package dependencies.
 - Encrypt and upload segments while recording
 - Add private iCloud storage
 - Add user-controlled Google Drive storage
-- Support simultaneous front-and-back capture on compatible iPhones
+- Add zoom and lens controls while keeping emergency recording simple
 - Add integrity metadata and an exportable chain-of-custody record
 - Expand automated tests and physical-device coverage
 - Complete accessibility and localization reviews
@@ -80,4 +83,4 @@ The initial prototype was built during OpenAI Build Week with help from Codex us
 
 ## License
 
-Vigil is available under the [MIT License](LICENSE).
+Vigil is available under the [MIT License](LICENSE). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the Apple sample-code acknowledgment associated with the multi-camera implementation.

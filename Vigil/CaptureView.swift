@@ -3,13 +3,17 @@ import SwiftUI
 struct CaptureView: View {
     @ObservedObject var model: VigilModel
     @ObservedObject var camera: CameraController
+    let openSettings: () -> Void
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
             if camera.readiness == .ready {
-                CameraPreview(session: camera.session)
+                CameraPreview(
+                    camera: camera,
+                    recordingMode: camera.selectedMode
+                )
                     .ignoresSafeArea(edges: .top)
             } else {
                 unavailableView
@@ -27,7 +31,7 @@ struct CaptureView: View {
                 header
                 Spacer()
                 recordingStatus
-                recordButton
+                bottomControls
                     .padding(.bottom, 28)
             }
             .padding(.horizontal, 20)
@@ -58,11 +62,16 @@ struct CaptureView: View {
                 .font(.headline.weight(.black))
                 .tracking(1.6)
             Spacer()
-            Label("ON DEVICE", systemImage: "iphone")
-                .font(.caption.weight(.semibold))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(.black.opacity(0.48), in: Capsule())
+            Button(action: openSettings) {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 40, height: 40)
+                    .background(.black.opacity(0.48), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(camera.isRecording || camera.isFinalizing)
+            .opacity(camera.isRecording || camera.isFinalizing ? 0.45 : 1)
+            .accessibilityLabel("Settings")
         }
         .padding(.top, 10)
     }
@@ -90,6 +99,20 @@ struct CaptureView: View {
         }
     }
 
+    private var bottomControls: some View {
+        ZStack {
+            recordButton
+
+            HStack {
+                Spacer()
+                recordingModeButton
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 112)
+        .padding(.top, 16)
+    }
+
     private var recordButton: some View {
         Button {
             camera.isRecording ? camera.stopRecording() : camera.startRecording()
@@ -108,9 +131,46 @@ struct CaptureView: View {
             .frame(width: 100, height: 100)
             .contentShape(Circle())
         }
-        .disabled(camera.readiness != .ready)
-        .padding(.top, 20)
+        .disabled(camera.readiness != .ready || camera.isChangingMode || camera.isFinalizing)
         .accessibilityLabel(camera.isRecording ? "Stop recording" : "Start recording")
+    }
+
+    private var recordingModeButton: some View {
+        Button {
+            camera.selectMode(nextRecordingMode)
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 54, height: 54)
+
+                if camera.isChangingMode {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: camera.selectedMode.systemImage)
+                        .font(.system(size: 21, weight: .semibold))
+                }
+            }
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(camera.isRecording || camera.isChangingMode || camera.isFinalizing)
+        .opacity(camera.isRecording ? 0.45 : 1)
+        .accessibilityLabel("Change camera mode")
+        .accessibilityValue(camera.selectedMode.title)
+        .accessibilityHint("Switches to \(nextRecordingMode.title)")
+    }
+
+    private var nextRecordingMode: RecordingMode {
+        switch camera.selectedMode {
+        case .rear:
+            .front
+        case .front:
+            camera.isDualCameraSupported ? .dual : .rear
+        case .dual:
+            .rear
+        }
     }
 
     private var unavailableView: some View {

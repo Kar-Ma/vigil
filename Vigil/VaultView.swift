@@ -8,21 +8,19 @@ struct VaultView: View {
     @State private var recordingPendingDeletion: VigilRecording?
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if access.isUnlocked {
-                    vaultContents
-                } else {
-                    lockedVault
-                }
+        Group {
+            if access.isUnlocked {
+                vaultContents
+            } else {
+                lockedVault
             }
-            .navigationTitle("Vigil Vault")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Image(systemName: access.isUnlocked ? "lock.open.fill" : "lock.fill")
-                        .foregroundStyle(access.isUnlocked ? .green : .secondary)
-                        .accessibilityLabel(access.isUnlocked ? "Vault unlocked" : "Vault locked")
-                }
+        }
+        .navigationTitle("Vigil Vault")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Image(systemName: access.isUnlocked ? "lock.open.fill" : "lock.fill")
+                    .foregroundStyle(access.isUnlocked ? .green : .secondary)
+                    .accessibilityLabel(access.isUnlocked ? "Vault unlocked" : "Vault locked")
             }
         }
         .sheet(item: $selectedRecording) { recording in

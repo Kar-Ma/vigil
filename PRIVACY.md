@@ -6,7 +6,7 @@ This document describes the current open-source Vigil MVP as of July 21, 2026. I
 
 Vigil does not currently require an account or send recordings to a developer-operated server. It contains no advertising, analytics, tracking, or third-party SDKs.
 
-Completed recordings are stored in the app’s local Application Support directory. Vigil applies iPhone file protection to the Vault directory and each completed recording. The Vault tab also requires Face ID or the iPhone passcode before showing its contents.
+Completed recordings are stored in the app’s local Application Support directory. Vigil applies iPhone file protection to the Vault directory and each completed recording. Opening the Vault from Settings also requires Face ID or the iPhone passcode before showing its contents.
 
 If the Camera Roll option is enabled, Vigil asks iOS for add-only Photos permission and saves an additional copy to Photos. That copy is managed by the Photos app and is not protected by the Vigil Vault screen.
 
@@ -17,7 +17,7 @@ When a person uses the share button, iOS presents the standard share sheet. The 
 - **Camera:** captures video.
 - **Microphone:** captures audio with the video.
 - **Photos — Add Only:** creates an optional Camera Roll copy. Vigil does not need to read the photo library.
-- **Face ID:** unlocks the Vault tab. If Face ID is unavailable, iOS may offer the device passcode.
+- **Face ID:** unlocks the Vigil Vault. If Face ID is unavailable, iOS may offer the device passcode.
 
 ## Cloud features
 
