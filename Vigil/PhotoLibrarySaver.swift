@@ -1,4 +1,5 @@
 import Photos
+import UIKit
 
 enum PhotoLibraryAccess: Equatable {
     case notDetermined
@@ -24,7 +25,9 @@ enum PhotoLibraryAccess: Equatable {
     }
 }
 
-struct PhotoLibrarySaver {
+final class PhotoLibrarySaver: NSObject {
+    private var saveContinuation: CheckedContinuation<Void, Error>?
+
     func currentAccess() -> PhotoLibraryAccess {
         Self.map(PHPhotoLibrary.authorizationStatus(for: .addOnly))
     }
@@ -47,11 +50,33 @@ struct PhotoLibrarySaver {
             throw PhotoLibrarySaveError.accessDenied
         }
 
-        try await PHPhotoLibrary.shared().performChanges {
-            let creationRequest = PHAssetCreationRequest.forAsset()
-            let options = PHAssetResourceCreationOptions()
-            options.shouldMoveFile = false
-            creationRequest.addResource(with: .video, fileURL: url, options: options)
+        guard UIVideoAtPathIsCompatibleWithSavedPhotosAlbum(url.path) else {
+            throw PhotoLibrarySaveError.incompatibleVideo
+        }
+
+        try await withCheckedThrowingContinuation { continuation in
+            saveContinuation = continuation
+            UISaveVideoAtPathToSavedPhotosAlbum(
+                url.path,
+                self,
+                #selector(video(_:didFinishSavingWithError:contextInfo:)),
+                nil
+            )
+        }
+    }
+
+    @objc private func video(
+        _ videoPath: String,
+        didFinishSavingWithError error: Error?,
+        contextInfo: UnsafeMutableRawPointer?
+    ) {
+        guard let continuation = saveContinuation else { return }
+        saveContinuation = nil
+
+        if let error {
+            continuation.resume(throwing: error)
+        } else {
+            continuation.resume()
         }
     }
 
@@ -73,12 +98,15 @@ struct PhotoLibrarySaver {
 
 enum PhotoLibrarySaveError: LocalizedError {
     case accessDenied
+    case incompatibleVideo
     case recordingUnavailable
 
     var errorDescription: String? {
         switch self {
         case .accessDenied:
             "Camera Roll permission is off. Enable Photos access in iPhone Settings."
+        case .incompatibleVideo:
+            "This recording format is not compatible with the iPhone Camera Roll."
         case .recordingUnavailable:
             "The completed recording could not be read for Camera Roll export."
         }

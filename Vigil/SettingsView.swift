@@ -9,6 +9,13 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 Section {
+                    alwaysOnRow(
+                        icon: "lock.shield.fill",
+                        color: .red,
+                        title: "Vigil Vault",
+                        detail: "Every recording is always protected inside Vigil."
+                    )
+
                     destinationRow(
                         icon: "photo.on.rectangle",
                         color: .blue,
@@ -18,12 +25,11 @@ struct SettingsView: View {
                         disabled: model.cameraRollAccess == .restricted
                     )
 
-                    alwaysOnRow(
-                        icon: "lock.shield.fill",
-                        color: .red,
-                        title: "Vigil Vault",
-                        detail: "Every recording is always protected inside Vigil."
-                    )
+                    if let cameraRollLastResult = model.cameraRollLastResult {
+                        Label(cameraRollLastResult, systemImage: model.cameraRollLastSaveSucceeded ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(model.cameraRollLastSaveSucceeded ? .green : .orange)
+                    }
 
                     if model.cameraRollAccess == .denied {
                         Button {
