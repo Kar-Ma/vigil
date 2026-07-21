@@ -45,7 +45,7 @@ nonisolated final class DualCameraProcessor: NSObject,
         }
     }
 
-    func startRecording(to outputURL: URL) throws {
+    func startRecording(to outputURL: URL, metadata: RecordingCaptureMetadata) throws {
         guard let videoSettings = backVideoOutput.recommendedVideoSettingsForAssetWriter(
             writingTo: .mov
         ),
@@ -59,7 +59,8 @@ nonisolated final class DualCameraProcessor: NSObject,
             recorder = try VigilMovieRecorder(
                 outputURL: outputURL,
                 videoSettings: videoSettings,
-                audioSettings: audioSettings
+                audioSettings: audioSettings,
+                metadata: metadata
             )
         }
     }

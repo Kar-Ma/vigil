@@ -101,14 +101,21 @@ final class CameraController: NSObject, ObservableObject {
 
         do {
             let url = try RecordingFiles.newRecordingURL()
+            let startedAt = Date()
+            let metadata = RecordingCaptureMetadata(
+                outputURL: url,
+                startedAt: startedAt,
+                cameraMode: selectedMode
+            )
             if isDualCameraSupported {
-                try dualProcessor.startRecording(to: url)
+                try dualProcessor.startRecording(to: url, metadata: metadata)
             } else {
                 guard !movieOutput.isRecording else { return }
+                movieOutput.metadata = metadata.avMetadataItems
                 movieOutput.startRecording(to: url, recordingDelegate: self)
             }
             isRecording = true
-            recordingStartedAt = Date()
+            recordingStartedAt = startedAt
         } catch {
             readiness = .failed(error.localizedDescription)
         }

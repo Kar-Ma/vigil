@@ -10,7 +10,9 @@ Completed recordings are stored in the app’s local Application Support directo
 
 If the Camera Roll option is enabled, Vigil asks iOS for add-only Photos permission and saves an additional copy to Photos. That copy is managed by the Photos app and is not protected by the Vigil Vault screen.
 
-When a person uses the share button, iOS presents the standard share sheet. The person chooses where the recording is sent; the chosen destination’s privacy practices then apply.
+New recordings contain non-location capture context in the video file: UTC start time, a random recording ID, the selected camera mode, and the Vigil app version. Vigil does not embed the person’s name, account, device identifier, or location.
+
+When a person uses the share button, they can share the untouched Vault original or ask Vigil to create a temporary stamped copy. The stamped copy visibly includes the Vigil mark, a UTC timestamp, and the short recording ID; the original remains unchanged. iOS then presents the standard share sheet. The temporary stamped file is removed after the share sheet closes, while anything the person sends or saves is controlled by the chosen destination and its privacy practices.
 
 Screen Curtain is an optional local display-privacy control. It covers the live camera preview and temporarily dims the iPhone display; it does not change the recorded video, send data anywhere, hide iOS privacy indicators, or remove Vigil’s visible recording status. The previous display brightness is restored when the curtain closes or Vigil leaves the foreground. When VoiceOver is running, Apple’s system Screen Curtain gesture takes priority.
 
@@ -23,6 +25,8 @@ If Google Drive is enabled, Vigil asks the person to sign in with Google and req
 - **Photos — Add Only:** creates an optional Camera Roll copy. Vigil does not need to read the photo library.
 - **Face ID:** unlocks the Vigil Vault. If Face ID is unavailable, iOS may offer the device passcode.
 - **Google Drive (`drive.file`):** when enabled, signs the person in and lets Vigil create and manage its own uploaded recordings in that account.
+
+Vigil does not currently request location permission or collect location for a recording.
 
 ## Cloud features
 
@@ -38,6 +42,6 @@ Vault recordings remain on the device until the person deletes them inside Vigil
 
 ## Scope and limitations
 
-Face ID protects access through the Vigil interface; it does not make the files immune to operating-system compromise, device seizure, app deletion, backups, or advanced forensic access. An active recording can also be lost if iOS cannot finalize the file.
+Face ID protects access through the Vigil interface; it does not make the files immune to operating-system compromise, device seizure, app deletion, backups, or advanced forensic access. An active recording can also be lost if iOS cannot finalize the file. Embedded capture context and visible stamps can be altered with editing tools and must not be treated as independent proof of authenticity.
 
 Before public distribution, this document must be reconciled with the final App Store privacy disclosures and Google OAuth consent-screen links. Any future diagnostics, analytics, developer server, or additional account data must be documented before release.

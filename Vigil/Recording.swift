@@ -12,6 +12,24 @@ struct VigilRecording: Identifiable, Hashable {
         url.lastPathComponent
     }
 
+    var shortID: String {
+        String(id.replacingOccurrences(of: "vigil-", with: "").prefix(8)).uppercased()
+    }
+
+    func utcTimestamp(at elapsedTime: TimeInterval = 0) -> String {
+        let date = createdAt.addingTimeInterval(max(0, elapsedTime))
+        return date.formatted(
+            .iso8601
+                .year()
+                .month()
+                .day()
+                .dateSeparator(.dash)
+                .time(includingFractionalSeconds: false)
+                .timeSeparator(.colon)
+                .timeZone(separator: .omitted)
+        ) + "Z"
+    }
+
     var formattedDate: String {
         createdAt.formatted(date: .abbreviated, time: .shortened)
     }

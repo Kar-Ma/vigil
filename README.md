@@ -22,7 +22,10 @@ The project is being developed in public so its privacy and security claims can 
 - Every completed recording saved to the always-on Vigil Vault
 - Face ID or the iPhone passcode required to open the Vault from Settings
 - iPhone file protection applied to the Vault directory and recordings
-- Playback, sharing, and deletion after the Vault is unlocked
+- Playback with a visible UTC timestamp, Vigil mark, and short recording ID after the Vault is unlocked
+- A choice to share the untouched original or create a temporary Vigil-stamped copy with the visible overlay burned into the video
+- Capture context embedded in new video files: UTC start time, recording ID, camera mode, and Vigil app version
+- Sharing and deletion after the Vault is unlocked
 - Optional copies saved to the iPhone Camera Roll
 - Optional copies uploaded to a visible `Vigil` folder in the person’s own Google Drive
 - iCloud shown as “Coming Soon”
@@ -38,7 +41,8 @@ The project is being developed in public so its privacy and security claims can 
 - Action Button recording requires a one-time assignment in iPhone Settings. The iPhone may require an unlock, and camera and microphone permissions must already be granted.
 - The Vault authentication screen is an in-app access barrier, not a claim of tamper-proof or forensic-grade storage.
 - Deleting Vigil also deletes its local Vault. Camera Roll and Google Drive copies remain separately accessible and deletable in those services.
-- Vigil does not currently create cryptographic proof of when, where, or by whom a recording was made.
+- Embedded metadata and a visible Vigil stamp provide useful context, but both can be edited and are not cryptographic proof of when, where, or by whom a recording was made.
+- Vigil does not collect or embed location in the current MVP.
 - Recording laws vary by location. The person recording is responsible for understanding the rules that apply to them.
 - The iOS Simulator has no usable camera; recording must be tested on an iPhone.
 
@@ -76,7 +80,7 @@ The current Google OAuth app may be kept in Google’s **Testing** state during 
 - Add private iCloud storage
 - Add durable background retry and clearer upload history for Google Drive
 - Add zoom and lens controls while keeping emergency recording simple
-- Add integrity metadata and an exportable chain-of-custody record
+- Add cryptographic integrity manifests and an exportable chain-of-custody record
 - Expand automated tests and physical-device coverage
 - Complete accessibility and localization reviews
 

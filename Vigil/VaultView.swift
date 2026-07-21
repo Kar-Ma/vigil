@@ -172,6 +172,12 @@ private struct RecordingPlayer: View {
     let recording: VigilRecording
     @Environment(\.dismiss) private var dismiss
     @State private var player: AVPlayer
+    @State private var isShowingShareChoices = false
+    @State private var isShowingShareSheet = false
+    @State private var isPreparingStampedCopy = false
+    @State private var sharedURL: URL?
+    @State private var temporaryStampedURL: URL?
+    @State private var exportErrorMessage: String?
 
     init(recording: VigilRecording) {
         self.recording = recording
@@ -180,22 +186,101 @@ private struct RecordingPlayer: View {
 
     var body: some View {
         NavigationStack {
-            VideoPlayer(player: player)
+            ZStack {
+                VideoPlayer(player: player)
+                VigilPlaybackOverlay(recording: recording, player: player)
+
+                if isPreparingStampedCopy {
+                    VStack(spacing: 12) {
+                        ProgressView()
+                            .controlSize(.large)
+                        Text("Preparing Vigil-stamped copy…")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .padding(22)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+                }
+            }
                 .background(.black)
                 .navigationTitle(recording.formattedDate)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {
-                        ShareLink(item: recording.url) {
+                        Button {
+                            player.pause()
+                            isShowingShareChoices = true
+                        } label: {
                             Label("Share", systemImage: "square.and.arrow.up")
                         }
+                        .disabled(isPreparingStampedCopy)
                     }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") { dismiss() }
                     }
                 }
                 .onAppear { player.play() }
-                .onDisappear { player.pause() }
+                .onDisappear {
+                    player.pause()
+                    removeTemporaryStampedCopy()
+                }
+                .confirmationDialog(
+                    "Share recording",
+                    isPresented: $isShowingShareChoices,
+                    titleVisibility: .visible
+                ) {
+                    Button("Share Original") {
+                        sharedURL = recording.url
+                        isShowingShareSheet = true
+                    }
+                    Button("Share Vigil-stamped Copy") {
+                        prepareStampedCopy()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("The stamped copy adds a visible Vigil mark, UTC timestamp, and recording ID. Your Vault original remains unchanged.")
+                }
+                .sheet(isPresented: $isShowingShareSheet, onDismiss: removeTemporaryStampedCopy) {
+                    if let sharedURL {
+                        ActivityShareSheet(items: [sharedURL])
+                            .ignoresSafeArea()
+                    }
+                }
+                .alert(
+                    "Stamped copy unavailable",
+                    isPresented: Binding(
+                        get: { exportErrorMessage != nil },
+                        set: { if !$0 { exportErrorMessage = nil } }
+                    )
+                ) {
+                    Button("OK", role: .cancel) {}
+                } message: {
+                    Text(exportErrorMessage ?? "Please try again.")
+                }
         }
+    }
+
+    private func prepareStampedCopy() {
+        guard !isPreparingStampedCopy else { return }
+        isPreparingStampedCopy = true
+        Task {
+            do {
+                let outputURL = try await VigilStampedVideoExporter.export(recording)
+                temporaryStampedURL = outputURL
+                sharedURL = outputURL
+                isPreparingStampedCopy = false
+                isShowingShareSheet = true
+            } catch {
+                isPreparingStampedCopy = false
+                exportErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func removeTemporaryStampedCopy() {
+        if let temporaryStampedURL {
+            try? FileManager.default.removeItem(at: temporaryStampedURL)
+        }
+        temporaryStampedURL = nil
+        sharedURL = nil
     }
 }
