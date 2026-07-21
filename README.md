@@ -65,7 +65,7 @@ See [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md) for the current data
 1. Clone this repository.
 2. Open `Vigil.xcodeproj` in Xcode.
 3. Select the Vigil target and choose your own Apple development team under **Signing & Capabilities**.
-4. If Xcode reports that `com.karma.vigil` is unavailable, change the bundle identifier to a unique value.
+4. If Xcode reports that `com.karthikmahadevan.vigil` is unavailable, change the bundle identifier to a unique value.
 5. Connect and select an unlocked iPhone.
 6. Press **Run**, then allow camera and microphone access.
 7. Enable **Camera Roll** in Vigil Settings if you want an additional Photos copy.
@@ -73,7 +73,7 @@ See [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md) for the current data
 9. Leave **Screen Curtain gesture** enabled to hide or reveal the live preview with a three-finger triple-tap. Vigil restores the previous display brightness when the curtain closes or the app leaves the foreground.
 10. On a supported iPhone, open **iPhone Settings → Action Button**, choose **Shortcut**, and assign **Start Vigil Recording**. Press and hold the Action Button to open Vigil and begin recording with your default camera mode.
 
-Google Drive sign-in uses the Google Sign-In for iOS Swift package. The checked-in OAuth client ID is public configuration, not a password, and is tied to the official `com.karma.vigil` bundle identifier. If you change the bundle identifier for your own build, create your own iOS OAuth client in Google Cloud and replace both `GIDClientID` and the reversed-client-ID URL scheme in `Vigil/Info.plist`.
+Google Drive sign-in uses the Google Sign-In for iOS Swift package. The checked-in OAuth client ID is public configuration, not a password, and is tied to the official `com.karthikmahadevan.vigil` bundle identifier. If you change the bundle identifier for your own build, create your own iOS OAuth client in Google Cloud and replace both `GIDClientID` and the reversed-client-ID URL scheme in `Vigil/Info.plist`.
 
 The current Google OAuth app may be kept in Google’s **Testing** state during development. In that state, only accounts explicitly added as test users can connect. A distributed beta must either add each tester’s Google account or publish the OAuth app to production.
 

@@ -39,7 +39,7 @@ enum ICloudAvailability: Equatable {
 }
 
 struct CloudUploader {
-    static let containerIdentifier = "iCloud.com.karma.vigil"
+    static let containerIdentifier = "iCloud.com.karthikmahadevan.vigil"
 
     private let container: CKContainer?
 

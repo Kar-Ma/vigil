@@ -8,7 +8,7 @@ nonisolated final class DualCameraProcessor: NSObject,
     let frontVideoOutput = AVCaptureVideoDataOutput()
     let audioOutput = AVCaptureAudioDataOutput()
 
-    private let outputQueue = DispatchQueue(label: "com.karma.vigil.dual-camera-output")
+    private let outputQueue = DispatchQueue(label: "com.karthikmahadevan.vigil.dual-camera-output")
     private let mixer = PiPVideoMixer()
     private var currentFrontSampleBuffer: CMSampleBuffer?
     private var recorder: VigilMovieRecorder?
