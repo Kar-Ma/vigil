@@ -1,0 +1,12 @@
+.DS_Store
+
+# Xcode's personal and generated files
+xcuserdata/
+DerivedData/
+*.xcuserstate
+
+# Build outputs
+build/
+*.ipa
+*.dSYM.zip
+
