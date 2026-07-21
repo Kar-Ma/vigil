@@ -110,20 +110,23 @@ final class VigilModel: ObservableObject {
         switch result {
         case .success(let url):
             reloadRecordings()
-            guard let recording = recordings.first(where: { $0.url == url }) else { return }
             bannerMessage = "Recording saved to your private vault."
-            Task { await saveToSelectedDestinations(recording) }
+            if saveToCameraRoll {
+                cameraRollLastSaveSucceeded = false
+                cameraRollLastResult = "Recording finished. Saving a Camera Roll copy…"
+            }
+            Task { await saveToSelectedDestinations(recordingURL: url) }
         case .failure:
             bannerMessage = "Recording could not be saved. Please try again."
         }
     }
 
-    private func saveToSelectedDestinations(_ recording: VigilRecording) async {
+    private func saveToSelectedDestinations(recordingURL: URL) async {
         var savedDestinations = ["Vigil Vault"]
 
         if saveToCameraRoll {
             do {
-                try await photoLibrarySaver.saveVideo(at: recording.url)
+                try await photoLibrarySaver.saveVideo(at: recordingURL)
                 cameraRollAccess = .allowed
                 cameraRollLastSaveSucceeded = true
                 cameraRollLastResult = "Last Camera Roll copy saved successfully."
