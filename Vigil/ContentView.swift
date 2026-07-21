@@ -13,7 +13,11 @@ struct ContentView: View {
         .tint(.red)
         .preferredColorScheme(.dark)
         .sheet(isPresented: $isShowingSettings, onDismiss: vaultAccess.lock) {
-            SettingsView(model: model, vaultAccess: vaultAccess)
+            SettingsView(
+                model: model,
+                vaultAccess: vaultAccess,
+                googleDrive: model.googleDrive
+            )
                 .preferredColorScheme(.dark)
         }
         .task {

@@ -1,5 +1,24 @@
 # Third-Party Notices
 
+## Google Sign-In and supporting packages
+
+Vigil uses Google Sign-In for iOS and its Swift Package Manager dependencies to connect the optional Google Drive destination. The resolved package names and versions are recorded in `Vigil.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`.
+
+These packages are distributed under the Apache License 2.0:
+
+- Google Sign-In for iOS
+- AppAuth for iOS
+- GTMAppAuth
+- GTMSessionFetcher
+- GoogleUtilities
+- Google App Check core libraries
+- Google SDK interoperability libraries
+- Promises
+
+The complete Apache License 2.0 text is included with each resolved source package and is available at <https://www.apache.org/licenses/LICENSE-2.0>.
+
+## Apple multi-camera sample
+
 Vigil’s multi-camera capture and movie-writing implementation was informed by Apple’s “AVMultiCamPiP: Capturing from Multiple Cameras” sample code.
 
 iPhone, iPad, iOS, and Xcode are trademarks of Apple Inc.

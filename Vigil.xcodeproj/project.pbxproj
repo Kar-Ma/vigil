@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D00100013010000100000001 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = D00100023010000100000001 /* GoogleSignIn */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		261BAC9A300F73C2003A71EF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -29,9 +33,22 @@
 		261BACA3300F73C2003A71EF /* VigilUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = VigilUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D00100043010000100000001 /* Exceptions for "Vigil" folder in "Vigil" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 261BAC8B300F73BF003A71EF /* Vigil */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		261BAC8E300F73BF003A71EF /* Vigil */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D00100043010000100000001 /* Exceptions for "Vigil" folder in "Vigil" target */,
+			);
 			path = Vigil;
 			sourceTree = "<group>";
 		};
@@ -52,6 +69,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D00100013010000100000001 /* GoogleSignIn in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -112,6 +130,7 @@
 			);
 			name = Vigil;
 			packageProductDependencies = (
+				D00100023010000100000001 /* GoogleSignIn */,
 			);
 			productName = Vigil;
 			productReference = 261BAC8C300F73BF003A71EF /* Vigil.app */;
@@ -195,6 +214,9 @@
 			);
 			mainGroup = 261BAC83300F73BF003A71EF;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				D00100033010000100000001 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 261BAC8D300F73BF003A71EF /* Products */;
 			projectDirPath = "";
@@ -397,7 +419,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WZWE945KQ5;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Vigil/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Vigil uses the camera to record important moments you choose to preserve.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Vigil uses Face ID to unlock your private Vigil Vault.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Vigil records audio with your video so the full context is preserved.";
@@ -433,7 +456,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WZWE945KQ5;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Vigil/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Vigil uses the camera to record important moments you choose to preserve.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Vigil uses Face ID to unlock your private Vigil Vault.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Vigil records audio with your video so the full context is preserved.";
@@ -580,6 +604,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		D00100033010000100000001 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D00100023010000100000001 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D00100033010000100000001 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 261BAC84300F73BF003A71EF /* Project object */;
 }

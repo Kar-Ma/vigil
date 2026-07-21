@@ -22,16 +22,18 @@ The project is being developed in public so its privacy and security claims can 
 - iPhone file protection applied to the Vault directory and recordings
 - Playback, sharing, and deletion after the Vault is unlocked
 - Optional copies saved to the iPhone Camera Roll
-- iCloud and Google Drive destinations shown as “Coming Soon”
-- No accounts, ads, analytics, third-party SDKs, or developer-operated server
+- Optional copies uploaded to a visible `Vigil` folder in the person’s own Google Drive
+- iCloud shown as “Coming Soon”
+- No Vigil account, ads, analytics, tracking, or developer-operated server
 
 ## Important limitations
 
 - Simultaneous front-and-rear capture depends on Apple MultiCam support and is unavailable on incompatible devices.
 - A recording is protected only after iOS finishes writing the video file. Force-quitting the app, losing power, or interrupting an active recording can prevent that file from being finalized.
 - Recordings are not currently uploaded while recording. Taking or destroying the phone before another copy is created can still destroy the evidence.
+- Google Drive upload starts only after a recording is finalized and requires a working network connection and Google sign-in. An upload failure does not remove the local Vault copy.
 - The Vault authentication screen is an in-app access barrier, not a claim of tamper-proof or forensic-grade storage.
-- Deleting Vigil also deletes its local Vault. Camera Roll copies can be viewed and deleted from Photos.
+- Deleting Vigil also deletes its local Vault. Camera Roll and Google Drive copies remain separately accessible and deletable in those services.
 - Vigil does not currently create cryptographic proof of when, where, or by whom a recording was made.
 - Recording laws vary by location. The person recording is responsible for understanding the rules that apply to them.
 - The iOS Simulator has no usable camera; recording must be tested on an iPhone.
@@ -55,15 +57,18 @@ See [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md) for the current data
 5. Connect and select an unlocked iPhone.
 6. Press **Run**, then allow camera and microphone access.
 7. Enable **Camera Roll** in Vigil Settings if you want an additional Photos copy.
+8. Enable **Google Drive** in Vigil Settings and sign in if you want completed recordings copied to a `Vigil` folder in your Drive.
 
-The app uses Apple frameworks and has no package dependencies.
+Google Drive sign-in uses the Google Sign-In for iOS Swift package. The checked-in OAuth client ID is public configuration, not a password, and is tied to the official `com.karma.vigil` bundle identifier. If you change the bundle identifier for your own build, create your own iOS OAuth client in Google Cloud and replace both `GIDClientID` and the reversed-client-ID URL scheme in `Vigil/Info.plist`.
+
+The current Google OAuth app may be kept in Google’s **Testing** state during development. In that state, only accounts explicitly added as test users can connect. A distributed beta must either add each tester’s Google account or publish the OAuth app to production.
 
 ## Roadmap
 
 - Recover interrupted recordings using short, independently playable segments
 - Encrypt and upload segments while recording
 - Add private iCloud storage
-- Add user-controlled Google Drive storage
+- Add durable background retry and clearer upload history for Google Drive
 - Add zoom and lens controls while keeping emergency recording simple
 - Add integrity metadata and an exportable chain-of-custody record
 - Expand automated tests and physical-device coverage
@@ -83,4 +88,4 @@ The initial prototype was built during OpenAI Build Week with help from Codex us
 
 ## License
 
-Vigil is available under the [MIT License](LICENSE). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the Apple sample-code acknowledgment associated with the multi-camera implementation.
+Vigil is available under the [MIT License](LICENSE). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for third-party acknowledgments and licenses.

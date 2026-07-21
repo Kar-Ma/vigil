@@ -12,6 +12,8 @@ final class VigilModel: ObservableObject {
     @Published private(set) var defaultRecordingMode: RecordingMode
     @Published var bannerMessage: String?
 
+    let googleDrive = GoogleDriveManager()
+
     lazy var camera: CameraController = {
         let camera = CameraController(initialMode: defaultRecordingMode)
         camera.onRecordingFinished = { [weak self] result in
@@ -41,6 +43,7 @@ final class VigilModel: ObservableObject {
     func start() async {
         async let cameraPreparation: Void = camera.prepare()
         refreshCameraRollAccess()
+        await googleDrive.restoreConnection()
         await cameraPreparation
     }
 
@@ -123,6 +126,7 @@ final class VigilModel: ObservableObject {
 
     private func saveToSelectedDestinations(recordingURL: URL) async {
         var savedDestinations = ["Vigil Vault"]
+        var failedDestinations: [String] = []
 
         if saveToCameraRoll {
             do {
@@ -131,12 +135,27 @@ final class VigilModel: ObservableObject {
                 savedDestinations.append("Camera Roll")
             } catch {
                 refreshCameraRollAccess()
-                bannerMessage = "Camera Roll save failed: \(error.localizedDescription) The Vigil Vault copy is safe."
-                return
+                failedDestinations.append("Camera Roll")
             }
         }
 
-        bannerMessage = "Saved to \(savedDestinations.joined(separator: " and "))."
+        if googleDrive.isEnabled {
+            let recordingID = recordingURL.deletingPathExtension().lastPathComponent
+            uploadingIDs.insert(recordingID)
+            do {
+                try await googleDrive.uploadRecording(at: recordingURL, createdAt: Date())
+                savedDestinations.append("Google Drive")
+            } catch {
+                failedDestinations.append("Google Drive")
+            }
+            uploadingIDs.remove(recordingID)
+        }
+
+        if failedDestinations.isEmpty {
+            bannerMessage = "Saved to \(savedDestinations.joined(separator: " and "))."
+        } else {
+            bannerMessage = "\(failedDestinations.joined(separator: " and ")) save failed. The Vigil Vault copy is safe."
+        }
     }
 
     private func refreshCameraRollAccess() {

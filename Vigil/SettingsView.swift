@@ -4,6 +4,7 @@ import UIKit
 struct SettingsView: View {
     @ObservedObject var model: VigilModel
     @ObservedObject var vaultAccess: VaultAccessController
+    @ObservedObject var googleDrive: GoogleDriveManager
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
     @State private var isShowingVault = false
@@ -61,21 +62,23 @@ struct SettingsView: View {
                         detail: "Protect a copy in your private iCloud storage."
                     )
 
-                    comingSoonRow(
+                    destinationRow(
                         icon: "externaldrive.connected.to.line.below",
                         color: .green,
                         title: "Google Drive",
-                        detail: "Save a copy to a connected Google Drive account."
+                        detail: googleDrive.statusDetail,
+                        isOn: googleDriveBinding,
+                        disabled: googleDrive.isConnecting
                     )
                 } header: {
                     Text("Save every recording to")
                 } footer: {
-                    Text("Vigil Vault is always on. Camera Roll and future cloud options create additional copies; they never replace the protected Vault recording.")
+                    Text("Vigil Vault is always on. Camera Roll and Google Drive create additional copies; they never replace the protected Vault recording.")
                 }
 
                 Section("Privacy note") {
                     Label {
-                        Text("Camera Roll copies are visible in Photos. Vigil Vault copies stay inside the app and use iPhone file protection.")
+                        Text("Camera Roll copies are visible in Photos. Google Drive copies are sent to the connected account. Vigil Vault copies stay inside the app and use iPhone file protection.")
                     } icon: {
                         Image(systemName: "hand.raised.fill")
                             .foregroundStyle(.orange)
@@ -120,6 +123,10 @@ struct SettingsView: View {
 
     private var cameraRollBinding: Binding<Bool> {
         Binding(get: { model.saveToCameraRoll }, set: { model.setSaveToCameraRoll($0) })
+    }
+
+    private var googleDriveBinding: Binding<Bool> {
+        Binding(get: { googleDrive.isEnabled }, set: { googleDrive.setEnabled($0) })
     }
 
     private func recordingModeRow(_ mode: RecordingMode) -> some View {

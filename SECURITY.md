@@ -30,6 +30,7 @@ The MVP aims to:
 - Require iOS owner authentication before displaying Vault contents
 - Use iPhone file protection for completed local recordings
 - Make an optional additional copy in Photos
+- Make an optional additional copy in a folder controlled by the person in Google Drive
 
 The MVP does **not** yet guarantee protection against:
 
@@ -38,10 +39,12 @@ The MVP does **not** yet guarantee protection against:
 - An attacker who controls the unlocked iPhone or knows its passcode
 - Operating-system compromise, advanced forensic extraction, or malicious device management
 - Deletion or alteration of a Camera Roll or shared copy
+- Failed, interrupted, delayed, or manually deleted Google Drive uploads
+- Compromise of the connected Google account or access by the cloud provider
 - Fabrication, editing, or disputes about a recording’s time, location, or authenticity
 - Loss of the phone before an external copy exists
 
-Security claims should be based on reviewed and tested behavior. Please do not describe planned cloud storage, encryption, segmentation, or integrity features as protection that exists today.
+Security claims should be based on reviewed and tested behavior. Google Drive currently receives completed files, not live encrypted segments. Please do not describe planned iCloud storage, live upload, encryption, segmentation, or integrity features as protection that exists today.
 
 ## Development hygiene
 
