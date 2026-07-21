@@ -46,6 +46,24 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    HStack(spacing: 14) {
+                        destinationIcon("button.programmable", color: .orange)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("Action Button")
+                                .font(.body.weight(.semibold))
+                            Text("Assign “Start Vigil Recording” in iPhone Settings → Action Button → Shortcut.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text("Quick access")
+                } footer: {
+                    Text("Press and hold the Action Button to open Vigil and start recording. Your iPhone may ask you to unlock first.")
+                }
+
+                Section {
                     Button {
                         openVault()
                     } label: {

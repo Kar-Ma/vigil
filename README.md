@@ -18,6 +18,7 @@ The project is being developed in public so its privacy and security claims can 
 - A saved default recording mode plus a quick mode control before recording begins
 - A camera-first interface with Settings and Vault access kept away from the primary record control
 - An optional three-finger triple-tap Screen Curtain that hides the live preview and dims the display while leaving recording controls available
+- A built-in `Start Vigil Recording` shortcut that can be assigned to a supported iPhone's Action Button
 - Every completed recording saved to the always-on Vigil Vault
 - Face ID or the iPhone passcode required to open the Vault from Settings
 - iPhone file protection applied to the Vault directory and recordings
@@ -34,6 +35,7 @@ The project is being developed in public so its privacy and security claims can 
 - Recordings are not currently uploaded while recording. Taking or destroying the phone before another copy is created can still destroy the evidence.
 - Google Drive upload starts only after a recording is finalized and requires a working network connection and Google sign-in. An upload failure does not remove the local Vault copy.
 - Screen Curtain is display privacy, not invisible recording. The recording timer, stop control, and iOS camera or microphone privacy indicator remain visible, and local recording laws still apply.
+- Action Button recording requires a one-time assignment in iPhone Settings. The iPhone may require an unlock, and camera and microphone permissions must already be granted.
 - The Vault authentication screen is an in-app access barrier, not a claim of tamper-proof or forensic-grade storage.
 - Deleting Vigil also deletes its local Vault. Camera Roll and Google Drive copies remain separately accessible and deletable in those services.
 - Vigil does not currently create cryptographic proof of when, where, or by whom a recording was made.
@@ -61,6 +63,7 @@ See [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md) for the current data
 7. Enable **Camera Roll** in Vigil Settings if you want an additional Photos copy.
 8. Enable **Google Drive** in Vigil Settings and sign in if you want completed recordings copied to a `Vigil` folder in your Drive.
 9. Leave **Screen Curtain gesture** enabled to hide or reveal the live preview with a three-finger triple-tap. Vigil restores the previous display brightness when the curtain closes or the app leaves the foreground.
+10. On a supported iPhone, open **iPhone Settings → Action Button**, choose **Shortcut**, and assign **Start Vigil Recording**. Press and hold the Action Button to open Vigil and begin recording with your default camera mode.
 
 Google Drive sign-in uses the Google Sign-In for iOS Swift package. The checked-in OAuth client ID is public configuration, not a password, and is tied to the official `com.karma.vigil` bundle identifier. If you change the bundle identifier for your own build, create your own iOS OAuth client in Google Cloud and replace both `GIDClientID` and the reversed-client-ID URL scheme in `Vigil/Info.plist`.
 

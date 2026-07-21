@@ -28,6 +28,8 @@ final class VigilModel: ObservableObject {
     private let cameraRollDefaultsKey = "saveToCameraRoll"
     private let iCloudDefaultsKey = "saveToICloud"
     private let recordingModeDefaultsKey = "defaultRecordingMode"
+    private var hasPendingQuickRecording = false
+    private var hasRestoredGoogleDriveConnection = false
 
     init() {
         saveToCameraRoll = UserDefaults.standard.object(forKey: cameraRollDefaultsKey) as? Bool ?? false
@@ -42,9 +44,21 @@ final class VigilModel: ObservableObject {
 
     func start() async {
         async let cameraPreparation: Void = camera.prepare()
+        async let googleDriveRestoration: Void = restoreGoogleDriveConnectionIfNeeded()
         refreshCameraRollAccess()
-        await googleDrive.restoreConnection()
         await cameraPreparation
+        fulfillPendingQuickRecordingIfPossible()
+        await googleDriveRestoration
+    }
+
+    func requestQuickRecording() {
+        guard !camera.isRecording else {
+            bannerMessage = "Vigil is already recording."
+            return
+        }
+
+        hasPendingQuickRecording = true
+        fulfillPendingQuickRecordingIfPossible()
     }
 
     func refreshICloud() async {
@@ -122,6 +136,36 @@ final class VigilModel: ObservableObject {
         case .failure:
             bannerMessage = "Recording could not be saved. Please try again."
         }
+    }
+
+    private func fulfillPendingQuickRecordingIfPossible() {
+        guard hasPendingQuickRecording else { return }
+
+        switch camera.readiness {
+        case .ready:
+            guard !camera.isFinalizing, !camera.isChangingMode else { return }
+            hasPendingQuickRecording = false
+            camera.startRecording()
+            if camera.isRecording {
+                bannerMessage = "Recording started from Quick Access."
+            } else {
+                bannerMessage = "Recording could not start. Please tap the record button."
+            }
+        case .denied:
+            hasPendingQuickRecording = false
+            bannerMessage = "Allow camera and microphone access before using Quick Access."
+        case .unavailable, .failed:
+            hasPendingQuickRecording = false
+            bannerMessage = "The camera is not available for Quick Access right now."
+        case .idle, .requestingPermission:
+            break
+        }
+    }
+
+    private func restoreGoogleDriveConnectionIfNeeded() async {
+        guard !hasRestoredGoogleDriveConnection else { return }
+        hasRestoredGoogleDriveConnection = true
+        await googleDrive.restoreConnection()
     }
 
     private func saveToSelectedDestinations(recordingURL: URL) async {

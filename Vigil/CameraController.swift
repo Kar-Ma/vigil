@@ -46,7 +46,20 @@ final class CameraController: NSObject, ObservableObject {
     }
 
     func prepare() async {
-        guard readiness == .idle else { return }
+        if readiness == .ready {
+            if !session.isRunning {
+                session.startRunning()
+                readiness = session.isRunning
+                    ? .ready
+                    : .failed("The camera session could not restart.")
+            }
+            return
+        }
+
+        // A locked-device launch can briefly make the camera unavailable while
+        // iOS completes authentication. Retry that transient failure once the
+        // scene is active instead of leaving the preview permanently black.
+        guard readiness == .idle || isRetryableFailure else { return }
         readiness = .requestingPermission
 
         let cameraAllowed = await requestAccess(for: .video)
@@ -57,6 +70,11 @@ final class CameraController: NSObject, ObservableObject {
         }
 
         configureSelectedMode()
+    }
+
+    private var isRetryableFailure: Bool {
+        if case .failed = readiness { return true }
+        return false
     }
 
     func selectMode(_ mode: RecordingMode) {

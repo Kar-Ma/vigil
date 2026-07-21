@@ -28,7 +28,9 @@ struct ContentView: View {
             )
                 .preferredColorScheme(.dark)
         }
-        .task {
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            handleQuickRecordingRequest()
             await model.start()
         }
         .onChange(of: scenePhase) { _, phase in
@@ -37,6 +39,16 @@ struct ContentView: View {
                 screenCurtain.deactivateWhenLeavingForeground()
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: QuickRecordingRequest.notification)) { _ in
+            handleQuickRecordingRequest()
+        }
+    }
+
+    private func handleQuickRecordingRequest() {
+        guard scenePhase == .active, QuickRecordingRequest.consumeIfRecent() else { return }
+        screenCurtain.deactivateWhenLeavingForeground()
+        isShowingSettings = false
+        model.requestQuickRecording()
     }
 }
 
