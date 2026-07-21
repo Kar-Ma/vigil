@@ -7,12 +7,13 @@ This repository is an early prototype built during OpenAI Build Week. It is not 
 ## What works today
 
 - One-tap video and audio recording on a physical iPhone
-- Local recordings stored inside the Vigil Vault with iPhone file protection
+- Every recording stored inside the always-on Vigil Vault with iPhone file protection
 - Face ID or iPhone passcode required once when opening the Vigil Vault
 - Playback, file size, saved date, upload state, and guarded deletion
 - Optional Camera Roll copies
 - Standard iOS share sheet for unlocked recordings
-- A Settings screen for Camera Roll and Vigil Vault, with iCloud and Google Drive marked “Coming soon”
+- Optional Camera Roll saving that requests Photos permission when enabled
+- A Settings screen with an always-on Vigil Vault, plus iCloud and Google Drive marked “Coming soon”
 - A local fallback copy when an external save fails
 
 ## Important limitations

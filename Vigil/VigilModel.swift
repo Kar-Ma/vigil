@@ -2,17 +2,12 @@ import Combine
 import Foundation
 
 final class VigilModel: ObservableObject {
-    enum Destination {
-        case cameraRoll
-        case vault
-    }
-
     @Published private(set) var recordings: [VigilRecording] = []
     @Published private(set) var iCloudAvailability: ICloudAvailability = .checking
     @Published private(set) var uploadingIDs: Set<String> = []
     @Published private(set) var protectedIDs: Set<String> = []
     @Published private(set) var saveToCameraRoll: Bool
-    @Published private(set) var saveToVault: Bool
+    @Published private(set) var cameraRollAccess: PhotoLibraryAccess = .notDetermined
     @Published private(set) var saveToICloud: Bool
     @Published var bannerMessage: String?
 
@@ -28,12 +23,10 @@ final class VigilModel: ObservableObject {
     private let photoLibrarySaver = PhotoLibrarySaver()
     private let protectedDefaultsKey = "protectedRecordingIDs"
     private let cameraRollDefaultsKey = "saveToCameraRoll"
-    private let vaultDefaultsKey = "saveToVault"
     private let iCloudDefaultsKey = "saveToICloud"
 
     init() {
         saveToCameraRoll = UserDefaults.standard.object(forKey: cameraRollDefaultsKey) as? Bool ?? false
-        saveToVault = UserDefaults.standard.object(forKey: vaultDefaultsKey) as? Bool ?? true
         saveToICloud = false
         UserDefaults.standard.set(false, forKey: iCloudDefaultsKey)
         protectedIDs = Set(UserDefaults.standard.stringArray(forKey: protectedDefaultsKey) ?? [])
@@ -41,7 +34,9 @@ final class VigilModel: ObservableObject {
     }
 
     func start() async {
-        await camera.prepare()
+        async let cameraPreparation: Void = camera.prepare()
+        refreshCameraRollAccess()
+        await cameraPreparation
     }
 
     func refreshICloud() async {
@@ -54,23 +49,17 @@ final class VigilModel: ObservableObject {
     }
 
     func setSaveToCameraRoll(_ isOn: Bool) {
-        guard isOn || !isLastEnabledDestination(.cameraRoll) else { return }
-        saveToCameraRoll = isOn
-        UserDefaults.standard.set(isOn, forKey: cameraRollDefaultsKey)
-    }
+        if !isOn {
+            applyCameraRollPreference(false)
+            return
+        }
 
-    func setSaveToVault(_ isOn: Bool) {
-        guard isOn || !isLastEnabledDestination(.vault) else { return }
-        saveToVault = isOn
-        UserDefaults.standard.set(isOn, forKey: vaultDefaultsKey)
-    }
-
-    func isLastEnabledDestination(_ destination: Destination) -> Bool {
-        let enabledCount = [saveToCameraRoll, saveToVault].filter { $0 }.count
-        guard enabledCount == 1 else { return false }
-        switch destination {
-        case .cameraRoll: return saveToCameraRoll
-        case .vault: return saveToVault
+        Task {
+            cameraRollAccess = await photoLibrarySaver.requestAccess()
+            applyCameraRollPreference(cameraRollAccess.canSave)
+            if !cameraRollAccess.canSave {
+                bannerMessage = "Allow Photos access in iPhone Settings to save Camera Roll copies."
+            }
         }
     }
 
@@ -122,31 +111,33 @@ final class VigilModel: ObservableObject {
     }
 
     private func saveToSelectedDestinations(_ recording: VigilRecording) async {
-        var allRequestedExternalSavesSucceeded = true
-        var savedDestinations: [String] = []
-
-        if saveToVault {
-            savedDestinations.append("Vigil Vault")
-        }
+        var savedDestinations = ["Vigil Vault"]
 
         if saveToCameraRoll {
             do {
                 try await photoLibrarySaver.saveVideo(at: recording.url)
+                cameraRollAccess = .allowed
                 savedDestinations.append("Camera Roll")
             } catch {
-                allRequestedExternalSavesSucceeded = false
-                bannerMessage = "Camera Roll save failed. A fallback copy is safe in Vigil Vault."
+                refreshCameraRollAccess()
+                bannerMessage = "Camera Roll save failed: \(error.localizedDescription) The Vigil Vault copy is safe."
+                return
             }
         }
 
-        if !saveToVault && allRequestedExternalSavesSucceeded && !savedDestinations.isEmpty {
-            try? FileManager.default.removeItem(at: recording.url)
-            reloadRecordings()
-        }
+        bannerMessage = "Saved to \(savedDestinations.joined(separator: " and "))."
+    }
 
-        if allRequestedExternalSavesSucceeded {
-            bannerMessage = "Saved to \(savedDestinations.joined(separator: " and "))."
+    private func refreshCameraRollAccess() {
+        cameraRollAccess = photoLibrarySaver.currentAccess()
+        if saveToCameraRoll && !cameraRollAccess.canSave {
+            applyCameraRollPreference(false)
         }
+    }
+
+    private func applyCameraRollPreference(_ isOn: Bool) {
+        saveToCameraRoll = isOn
+        UserDefaults.standard.set(isOn, forKey: cameraRollDefaultsKey)
     }
 
     private func saveProtectedIDs() {
