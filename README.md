@@ -11,6 +11,10 @@ In a stressful encounter, a person may need to record quickly while worrying tha
 
 The project is being developed in public so its privacy and security claims can be inspected rather than taken on trust.
 
+## TestFlight beta
+
+[Join the Vigil Early Access beta on TestFlight](https://testflight.apple.com/join/5E5Cywaw). The link will begin accepting testers after Apple approves the first external beta build and is initially limited to 50 testers.
+
 ## Current MVP
 
 - One-tap video and audio recording on a physical iPhone
@@ -75,7 +79,7 @@ See [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md) for the current data
 
 Google Drive sign-in uses the Google Sign-In for iOS Swift package. The checked-in OAuth client ID is public configuration, not a password, and is tied to the official `com.karthikmahadevan.vigil` bundle identifier. If you change the bundle identifier for your own build, create your own iOS OAuth client in Google Cloud and replace both `GIDClientID` and the reversed-client-ID URL scheme in `Vigil/Info.plist`.
 
-The current Google OAuth app may be kept in Google’s **Testing** state during development. In that state, only accounts explicitly added as test users can connect. A distributed beta must either add each tester’s Google account or publish the OAuth app to production.
+The official Google OAuth app is published to production and requests only the non-sensitive `drive.file` scope, so external testers can connect their own Google accounts. Google reports that OAuth verification is not required for this scope configuration.
 
 ## Roadmap
 

@@ -1,6 +1,6 @@
-# Privacy
+# Vigil Privacy Notice
 
-This document describes the current open-source Vigil MVP as of July 21, 2026. It is a technical description, not an App Store privacy label or legal privacy policy for a future distributed service.
+This notice describes how the Vigil: Secure Camera public beta handles data as of July 21, 2026.
 
 ## Current data flow
 
@@ -15,6 +15,8 @@ New recordings contain non-location capture context in the video file: UTC start
 When a person uses the share button, they can share the untouched Vault original or ask Vigil to create a temporary stamped copy. The stamped copy visibly includes the Vigil mark, a UTC timestamp, and the short recording ID; the original remains unchanged. iOS then presents the standard share sheet. The temporary stamped file is removed after the share sheet closes, while anything the person sends or saves is controlled by the chosen destination and its privacy practices.
 
 Screen Curtain is an optional local display-privacy control. It covers the live camera preview and temporarily dims the iPhone display; it does not change the recorded video, send data anywhere, hide iOS privacy indicators, or remove Vigil’s visible recording status. The previous display brightness is restored when the curtain closes or Vigil leaves the foreground. When VoiceOver is running, Apple’s system Screen Curtain gesture takes priority.
+
+The emergency number selected in Vigil Settings is stored only on the iPhone. Tapping SOS asks iOS to open a telephone link for that number; Vigil does not place the call itself or receive information about the call.
 
 If Google Drive is enabled, Vigil asks the person to sign in with Google and requests the `drive.file` permission. This permission lets Vigil create and manage only the files it creates or that the person explicitly opens with Vigil; it does not give Vigil general read access to the rest of the person’s Drive. After a recording is completed, Vigil creates or finds a visible `Vigil` folder in that account and uploads an additional video copy directly from the iPhone to Google. The recording does not pass through a Vigil-operated server. Google’s privacy practices apply to the sign-in session and uploaded copy.
 
@@ -44,4 +46,8 @@ Vault recordings remain on the device until the person deletes them inside Vigil
 
 Face ID protects access through the Vigil interface; it does not make the files immune to operating-system compromise, device seizure, app deletion, backups, or advanced forensic access. An active recording can also be lost if iOS cannot finalize the file. Embedded capture context and visible stamps can be altered with editing tools and must not be treated as independent proof of authenticity.
 
-Before public distribution, this document must be reconciled with the final App Store privacy disclosures and Google OAuth consent-screen links. Any future diagnostics, analytics, developer server, or additional account data must be documented before release.
+Any future diagnostics, analytics, developer server, or additional account data will be documented before it is enabled.
+
+## Contact
+
+Questions about this notice or Vigil's data handling can be sent to hello@karthikmahadevan.com.
