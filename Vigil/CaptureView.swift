@@ -4,6 +4,8 @@ struct CaptureView: View {
     @ObservedObject var model: VigilModel
     @ObservedObject var camera: CameraController
     @ObservedObject var screenCurtain: ScreenCurtainController
+    @AppStorage(EmergencyCallHandoff.defaultsKey)
+    private var emergencyNumber = EmergencyCallHandoff.defaultNumber
     @Environment(\.openURL) private var openURL
     let allowsScreenCurtainGesture: Bool
     let openSettings: () -> Void
@@ -259,7 +261,7 @@ struct CaptureView: View {
 
     private var sosButton: some View {
         Button {
-            guard let phoneURL = EmergencyCallHandoff.phoneURL else { return }
+            guard let phoneURL = EmergencyCallHandoff.phoneURL(for: emergencyNumber) else { return }
             openURL(phoneURL)
         } label: {
             Text("SOS")
@@ -271,8 +273,9 @@ struct CaptureView: View {
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
+        .disabled(EmergencyCallHandoff.phoneURL(for: emergencyNumber) == nil)
         .accessibilityLabel("Call emergency services")
-        .accessibilityValue(EmergencyCallHandoff.number)
+        .accessibilityValue(emergencyNumber.isEmpty ? "Not configured" : emergencyNumber)
         .accessibilityHint("Opens the iPhone confirmation before calling")
     }
 

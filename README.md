@@ -19,7 +19,7 @@ The project is being developed in public so its privacy and security claims can 
 - A camera-first interface with Settings and Vault access kept away from the primary record control
 - An optional three-finger triple-tap Screen Curtain that hides the live preview and dims the display while leaving recording controls available
 - A built-in `Start Vigil Recording` shortcut that can be assigned to a supported iPhone's Action Button
-- An SOS control that hands off to the iPhone's confirmation screen before calling `112`
+- An SOS control that hands off to the iPhone's confirmation screen using a user-configurable regional emergency number
 - Interruption protection that finalizes the active clip when Vigil leaves the foreground or loses camera access, then starts a new protected clip when recording becomes available again
 - Every completed recording saved to the always-on Vigil Vault
 - Face ID or the iPhone passcode required to open the Vault from Settings
@@ -42,7 +42,7 @@ The project is being developed in public so its privacy and security claims can 
 - Screen Curtain is display privacy, not invisible recording. The recording timer, stop control, and iOS camera or microphone privacy indicator remain visible, and local recording laws still apply.
 - Action Button recording requires a one-time assignment in iPhone Settings. The iPhone may require an unlock, and camera and microphone permissions must already be granted.
 - iOS does not allow Vigil to record video during an active phone call. Vigil protects the pre-call clip and resumes into a new clip after the call ends, leaving an unavoidable gap during the call.
-- The current submission build uses `112` for its SOS handoff. A broader release needs region-aware emergency-number handling and must not replace the iPhone's built-in Emergency SOS.
+- The SOS handoff defaults to `911`; users should set the correct emergency number for their region in Vigil Settings. Vigil does not replace the iPhone's built-in Emergency SOS.
 - The Vault authentication screen is an in-app access barrier, not a claim of tamper-proof or forensic-grade storage.
 - Deleting Vigil also deletes its local Vault. Camera Roll and Google Drive copies remain separately accessible and deletable in those services.
 - Embedded metadata and a visible Vigil stamp provide useful context, but both can be edited and are not cryptographic proof of when, where, or by whom a recording was made.

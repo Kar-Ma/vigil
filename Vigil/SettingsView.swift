@@ -6,6 +6,8 @@ struct SettingsView: View {
     @ObservedObject var vaultAccess: VaultAccessController
     @ObservedObject var googleDrive: GoogleDriveManager
     @ObservedObject var screenCurtain: ScreenCurtainController
+    @AppStorage(EmergencyCallHandoff.defaultsKey)
+    private var emergencyNumber = EmergencyCallHandoff.defaultNumber
     @Environment(\.openURL) private var openURL
     @Environment(\.dismiss) private var dismiss
     @State private var isShowingVault = false
@@ -111,6 +113,32 @@ struct SettingsView: View {
                 } header: {
                     Text("Quick access")
                 }
+
+                Section {
+                    HStack(spacing: 14) {
+                        destinationIcon("cross.case.fill", color: .red)
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("SOS number")
+                                .font(.body.weight(.semibold))
+                            Text(emergencyNumber.isEmpty ? "Enter the emergency number for your region." : "Used by the SOS button on Record.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        TextField("911", text: emergencyNumberBinding)
+                            .keyboardType(.phonePad)
+                            .textContentType(.telephoneNumber)
+                            .multilineTextAlignment(.trailing)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 88)
+                            .accessibilityLabel("Emergency number")
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text("Emergency")
+                } footer: {
+                    Text("Vigil opens the iPhone call confirmation. Verify the correct emergency number for your location.")
+                }
             }
             .navigationTitle("Settings")
             .toolbar {
@@ -165,6 +193,13 @@ struct SettingsView: View {
         Binding(
             get: { screenCurtain.isGestureEnabled },
             set: { screenCurtain.setGestureEnabled($0) }
+        )
+    }
+
+    private var emergencyNumberBinding: Binding<String> {
+        Binding(
+            get: { emergencyNumber },
+            set: { emergencyNumber = EmergencyCallHandoff.sanitizedNumber($0) }
         )
     }
 
