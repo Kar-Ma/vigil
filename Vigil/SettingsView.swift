@@ -25,12 +25,6 @@ struct SettingsView: View {
                         disabled: model.cameraRollAccess == .restricted
                     )
 
-                    if let cameraRollLastResult = model.cameraRollLastResult {
-                        Label(cameraRollLastResult, systemImage: model.cameraRollLastSaveSucceeded ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                            .font(.caption)
-                            .foregroundStyle(model.cameraRollLastSaveSucceeded ? .green : .orange)
-                    }
-
                     if model.cameraRollAccess == .denied {
                         Button {
                             guard let url = URL(string: UIApplication.openSettingsURLString) else { return }

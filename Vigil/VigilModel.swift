@@ -8,8 +8,6 @@ final class VigilModel: ObservableObject {
     @Published private(set) var protectedIDs: Set<String> = []
     @Published private(set) var saveToCameraRoll: Bool
     @Published private(set) var cameraRollAccess: PhotoLibraryAccess = .notDetermined
-    @Published private(set) var cameraRollLastResult: String?
-    @Published private(set) var cameraRollLastSaveSucceeded = false
     @Published private(set) var saveToICloud: Bool
     @Published var bannerMessage: String?
 
@@ -53,19 +51,13 @@ final class VigilModel: ObservableObject {
     func setSaveToCameraRoll(_ isOn: Bool) {
         if !isOn {
             applyCameraRollPreference(false)
-            cameraRollLastResult = nil
             return
         }
 
         Task {
             cameraRollAccess = await photoLibrarySaver.requestAccess()
             applyCameraRollPreference(cameraRollAccess.canSave)
-            if cameraRollAccess.canSave {
-                cameraRollLastSaveSucceeded = true
-                cameraRollLastResult = "Photos permission granted. Your next recording will also be saved there."
-            } else {
-                cameraRollLastSaveSucceeded = false
-                cameraRollLastResult = "Photos permission is off, so Camera Roll copies cannot be saved."
+            if !cameraRollAccess.canSave {
                 bannerMessage = "Allow Photos access in iPhone Settings to save Camera Roll copies."
             }
         }
@@ -111,10 +103,6 @@ final class VigilModel: ObservableObject {
         case .success(let url):
             reloadRecordings()
             bannerMessage = "Recording saved to your private vault."
-            if saveToCameraRoll {
-                cameraRollLastSaveSucceeded = false
-                cameraRollLastResult = "Recording finished. Saving a Camera Roll copy…"
-            }
             Task { await saveToSelectedDestinations(recordingURL: url) }
         case .failure:
             bannerMessage = "Recording could not be saved. Please try again."
@@ -128,13 +116,9 @@ final class VigilModel: ObservableObject {
             do {
                 try await photoLibrarySaver.saveVideo(at: recordingURL)
                 cameraRollAccess = .allowed
-                cameraRollLastSaveSucceeded = true
-                cameraRollLastResult = "Last Camera Roll copy saved successfully."
                 savedDestinations.append("Camera Roll")
             } catch {
                 refreshCameraRollAccess()
-                cameraRollLastSaveSucceeded = false
-                cameraRollLastResult = "Last Camera Roll save failed: \(error.localizedDescription)"
                 bannerMessage = "Camera Roll save failed: \(error.localizedDescription) The Vigil Vault copy is safe."
                 return
             }
