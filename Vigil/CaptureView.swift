@@ -4,6 +4,7 @@ struct CaptureView: View {
     @ObservedObject var model: VigilModel
     @ObservedObject var camera: CameraController
     @ObservedObject var screenCurtain: ScreenCurtainController
+    @Environment(\.openURL) private var openURL
     let allowsScreenCurtainGesture: Bool
     let openSettings: () -> Void
 
@@ -244,6 +245,7 @@ struct CaptureView: View {
             recordButton
 
             HStack {
+                sosButton
                 Spacer()
                 if !screenCurtain.isActive {
                     recordingModeButton
@@ -253,6 +255,25 @@ struct CaptureView: View {
         .frame(maxWidth: .infinity)
         .frame(height: 112)
         .padding(.top, 16)
+    }
+
+    private var sosButton: some View {
+        Button {
+            guard let phoneURL = EmergencyCallHandoff.phoneURL else { return }
+            openURL(phoneURL)
+        } label: {
+            Text("SOS")
+                .font(.caption.weight(.black))
+                .tracking(0.5)
+                .foregroundStyle(.red)
+                .frame(width: 54, height: 54)
+                .background(.ultraThinMaterial, in: Circle())
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Call emergency services")
+        .accessibilityValue(EmergencyCallHandoff.number)
+        .accessibilityHint("Opens the iPhone confirmation before calling")
     }
 
     private var recordButton: some View {
