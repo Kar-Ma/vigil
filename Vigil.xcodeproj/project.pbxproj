@@ -397,6 +397,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Vigil uses the camera to record important moments you choose to preserve.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Vigil records audio with your video so the full context is preserved.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Vigil saves a copy of your recording to your Camera Roll when you choose that option.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -428,6 +431,9 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Vigil uses the camera to record important moments you choose to preserve.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Vigil records audio with your video so the full context is preserved.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Vigil saves a copy of your recording to your Camera Roll when you choose that option.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

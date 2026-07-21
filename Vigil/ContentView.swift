@@ -1,21 +1,31 @@
-//
-//  ContentView.swift
-//  Vigil
-//
-//  Created by Karthik Mahadevan on 21/07/2026.
-//
-
 import SwiftUI
 
 struct ContentView: View {
+    @StateObject private var model = VigilModel()
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView {
+            CaptureView(model: model, camera: model.camera)
+                .tabItem {
+                    Label("Record", systemImage: "record.circle")
+                }
+
+            VaultView(model: model)
+                .tabItem {
+                    Label("Vault", systemImage: "lock.shield")
+                }
+                .badge(model.recordings.count)
+
+            SettingsView(model: model)
+                .tabItem {
+                    Label("Settings", systemImage: "gearshape")
+                }
         }
-        .padding()
+        .tint(.red)
+        .preferredColorScheme(.dark)
+        .task {
+            await model.start()
+        }
     }
 }
 
