@@ -8,18 +8,18 @@ This repository is an early prototype built during OpenAI Build Week. It is not 
 
 - One-tap video and audio recording on a physical iPhone
 - Local recordings stored inside the Vigil Vault with iPhone file protection
+- Face ID or iPhone passcode required once when opening the Vigil Vault
 - Playback, file size, saved date, upload state, and guarded deletion
 - Optional Camera Roll copies
-- Optional post-recording upload to the user's private CloudKit database
-- A Settings screen for Camera Roll, Vigil Vault, iCloud, and a disabled Google Drive “Coming soon” option
+- Standard iOS share sheet for unlocked recordings
+- A Settings screen for Camera Roll and Vigil Vault, with iCloud and Google Drive marked “Coming soon”
 - A local fallback copy when an external save fails
 
 ## Important limitations
 
 - The iOS Simulator has no usable camera; recording must be tested on an iPhone.
-- CloudKit code is implemented, but it is disabled until the project has an Apple Developer membership and iCloud entitlement.
+- CloudKit code is implemented but not exposed yet; iCloud remains “Coming soon” until the project has an Apple Developer membership and iCloud entitlement.
 - iCloud upload begins after a recording finishes. A later version should upload encrypted segments while recording.
-- The Vigil Vault uses the iOS app sandbox and file protection, but it does not yet have a separate passcode or Face ID lock.
 - This prototype records the back camera. Simultaneous front-and-back recording is planned for supported devices.
 
 ## Run the app

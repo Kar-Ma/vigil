@@ -3,68 +3,36 @@ import SwiftUI
 
 struct VaultView: View {
     @ObservedObject var model: VigilModel
+    @ObservedObject var access: VaultAccessController
     @State private var selectedRecording: VigilRecording?
     @State private var recordingPendingDeletion: VigilRecording?
 
     var body: some View {
         NavigationStack {
-            List {
-                iCloudSection
-
-                if model.recordings.isEmpty {
-                    Section {
-                        ContentUnavailableView(
-                            "Your vault is empty",
-                            systemImage: "lock.shield",
-                            description: Text("Completed recordings will appear here.")
-                        )
-                        .frame(maxWidth: .infinity)
-                        .listRowBackground(Color.clear)
-                    }
+            Group {
+                if access.isUnlocked {
+                    vaultContents
                 } else {
-                    Section("Recordings") {
-                        ForEach(model.recordings) { recording in
-                            Button {
-                                selectedRecording = recording
-                            } label: {
-                                RecordingRow(recording: recording, model: model)
-                            }
-                            .buttonStyle(.plain)
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    recordingPendingDeletion = recording
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
-                            }
-                            .swipeActions(edge: .leading) {
-                                if !model.protectedIDs.contains(recording.id) {
-                                    Button {
-                                        Task { await model.upload(recording) }
-                                    } label: {
-                                        Label("Protect", systemImage: "icloud.and.arrow.up")
-                                    }
-                                    .tint(.blue)
-                                }
-                            }
-                        }
-                    }
+                    lockedVault
                 }
             }
-            .refreshable {
-                await model.refreshICloud()
-            }
-            .navigationTitle("Private Vault")
+            .navigationTitle("Vigil Vault")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Image(systemName: "lock.fill")
-                        .foregroundStyle(.green)
-                        .accessibilityLabel("Private local storage")
+                    Image(systemName: access.isUnlocked ? "lock.open.fill" : "lock.fill")
+                        .foregroundStyle(access.isUnlocked ? .green : .secondary)
+                        .accessibilityLabel(access.isUnlocked ? "Vault unlocked" : "Vault locked")
                 }
             }
         }
         .sheet(item: $selectedRecording) { recording in
             RecordingPlayer(recording: recording)
+        }
+        .onChange(of: access.isUnlocked) { _, isUnlocked in
+            if !isUnlocked {
+                selectedRecording = nil
+                recordingPendingDeletion = nil
+            }
         }
         .alert(
             "Delete this recording?",
@@ -86,32 +54,80 @@ struct VaultView: View {
         }
     }
 
-    private var iCloudSection: some View {
-        Section {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: model.iCloudAvailability == .available ? "checkmark.icloud.fill" : "icloud.slash")
-                    .font(.title2)
-                    .foregroundStyle(model.iCloudAvailability == .available ? .green : .orange)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(model.iCloudAvailability.title)
-                        .font(.headline)
-                    Text(model.iCloudAvailability.detail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+    private var vaultContents: some View {
+        List {
+            if model.recordings.isEmpty {
+                Section {
+                    ContentUnavailableView(
+                        "Your vault is empty",
+                        systemImage: "lock.shield",
+                        description: Text("Completed recordings will appear here.")
+                    )
+                    .frame(maxWidth: .infinity)
+                    .listRowBackground(Color.clear)
                 }
-                Spacer(minLength: 8)
-                if model.iCloudAvailability != .available {
-                    Button("Retry") {
-                        Task { await model.refreshICloud() }
+            } else {
+                Section("Recordings") {
+                    ForEach(model.recordings) { recording in
+                        Button {
+                            selectedRecording = recording
+                        } label: {
+                            RecordingRow(recording: recording, model: model)
+                        }
+                        .buttonStyle(.plain)
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                recordingPendingDeletion = recording
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
                     }
-                    .buttonStyle(.bordered)
-                    .disabled(model.iCloudAvailability == .checking)
                 }
             }
-            .padding(.vertical, 4)
-        } header: {
-            Text("Protection")
         }
+    }
+
+    private var lockedVault: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "lock.shield.fill")
+                .font(.system(size: 52))
+                .foregroundStyle(.red)
+            VStack(spacing: 7) {
+                Text("Vigil Vault is locked")
+                    .font(.title3.weight(.bold))
+                Text("Use Face ID or your iPhone passcode to view, share, or manage recordings.")
+                    .font(.subheadline)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 36)
+
+            Button {
+                access.unlock()
+            } label: {
+                if access.isAuthenticating {
+                    ProgressView()
+                        .frame(minWidth: 128)
+                } else {
+                    Label("Unlock Vault", systemImage: "faceid")
+                        .frame(minWidth: 128)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.red)
+            .disabled(access.isAuthenticating)
+
+            if let message = access.message {
+                Text(message)
+                    .font(.caption)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.orange)
+                    .padding(.horizontal, 32)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(.systemGroupedBackground))
     }
 }
 
@@ -136,10 +152,10 @@ private struct RecordingRow: View {
                     .foregroundStyle(.secondary)
                 Label(
                     model.protectionTitle(for: recording),
-                    systemImage: model.protectedIDs.contains(recording.id) ? "checkmark.icloud" : "iphone"
+                    systemImage: "lock.shield.fill"
                 )
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(model.protectedIDs.contains(recording.id) ? .green : .orange)
+                .foregroundStyle(.green)
             }
             Spacer()
             if model.uploadingIDs.contains(recording.id) {
@@ -171,6 +187,11 @@ private struct RecordingPlayer: View {
                 .navigationTitle(recording.formattedDate)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        ShareLink(item: recording.url) {
+                            Label("Share", systemImage: "square.and.arrow.up")
+                        }
+                    }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") { dismiss() }
                     }

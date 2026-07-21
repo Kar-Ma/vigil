@@ -58,13 +58,8 @@ struct CaptureView: View {
                 .font(.headline.weight(.black))
                 .tracking(1.6)
             Spacer()
-            HStack(spacing: 7) {
-                Circle()
-                    .fill(model.iCloudAvailability == .available ? Color.green : Color.orange)
-                    .frame(width: 7, height: 7)
-                Text(model.iCloudAvailability.title)
-                    .font(.caption.weight(.semibold))
-            }
+            Label("ON DEVICE", systemImage: "iphone")
+                .font(.caption.weight(.semibold))
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
             .background(.black.opacity(0.48), in: Capsule())

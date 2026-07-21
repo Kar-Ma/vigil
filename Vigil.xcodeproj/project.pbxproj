@@ -395,9 +395,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WZWE945KQ5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Vigil uses the camera to record important moments you choose to preserve.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Vigil uses Face ID to unlock your private Vigil Vault.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Vigil records audio with your video so the full context is preserved.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Vigil saves a copy of your recording to your Camera Roll when you choose that option.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -429,9 +431,11 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = WZWE945KQ5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Vigil uses the camera to record important moments you choose to preserve.";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Vigil uses Face ID to unlock your private Vigil Vault.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Vigil records audio with your video so the full context is preserved.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Vigil saves a copy of your recording to your Camera Roll when you choose that option.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;

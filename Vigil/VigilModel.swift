@@ -5,7 +5,6 @@ final class VigilModel: ObservableObject {
     enum Destination {
         case cameraRoll
         case vault
-        case iCloud
     }
 
     @Published private(set) var recordings: [VigilRecording] = []
@@ -35,16 +34,14 @@ final class VigilModel: ObservableObject {
     init() {
         saveToCameraRoll = UserDefaults.standard.object(forKey: cameraRollDefaultsKey) as? Bool ?? false
         saveToVault = UserDefaults.standard.object(forKey: vaultDefaultsKey) as? Bool ?? true
-        saveToICloud = UserDefaults.standard.object(forKey: iCloudDefaultsKey) as? Bool ?? false
+        saveToICloud = false
+        UserDefaults.standard.set(false, forKey: iCloudDefaultsKey)
         protectedIDs = Set(UserDefaults.standard.stringArray(forKey: protectedDefaultsKey) ?? [])
         reloadRecordings()
     }
 
     func start() async {
-        async let cameraPreparation: Void = camera.prepare()
-        async let cloudCheck: Void = refreshICloud()
-        await cloudCheck
-        await cameraPreparation
+        await camera.prepare()
     }
 
     func refreshICloud() async {
@@ -68,22 +65,12 @@ final class VigilModel: ObservableObject {
         UserDefaults.standard.set(isOn, forKey: vaultDefaultsKey)
     }
 
-    func setSaveToICloud(_ isOn: Bool) {
-        guard isOn || !isLastEnabledDestination(.iCloud) else { return }
-        saveToICloud = isOn
-        UserDefaults.standard.set(isOn, forKey: iCloudDefaultsKey)
-        if isOn {
-            Task { await refreshICloud() }
-        }
-    }
-
     func isLastEnabledDestination(_ destination: Destination) -> Bool {
-        let enabledCount = [saveToCameraRoll, saveToVault, saveToICloud].filter { $0 }.count
+        let enabledCount = [saveToCameraRoll, saveToVault].filter { $0 }.count
         guard enabledCount == 1 else { return false }
         switch destination {
         case .cameraRoll: return saveToCameraRoll
         case .vault: return saveToVault
-        case .iCloud: return saveToICloud
         }
     }
 
@@ -119,9 +106,7 @@ final class VigilModel: ObservableObject {
     }
 
     func protectionTitle(for recording: VigilRecording) -> String {
-        if protectedIDs.contains(recording.id) { return "Protected in iCloud" }
-        if uploadingIDs.contains(recording.id) { return "Uploading" }
-        return "On this iPhone"
+        "Protected in Vigil Vault"
     }
 
     private func recordingFinished(_ result: Result<URL, Error>) {
@@ -151,17 +136,6 @@ final class VigilModel: ObservableObject {
             } catch {
                 allRequestedExternalSavesSucceeded = false
                 bannerMessage = "Camera Roll save failed. A fallback copy is safe in Vigil Vault."
-            }
-        }
-
-        if saveToICloud {
-            if iCloudAvailability != .available {
-                await refreshICloud()
-            }
-            if await upload(recording) {
-                savedDestinations.append("iCloud")
-            } else {
-                allRequestedExternalSavesSucceeded = false
             }
         }
 

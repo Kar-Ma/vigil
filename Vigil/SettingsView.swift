@@ -25,66 +25,23 @@ struct SettingsView: View {
                         disabled: model.saveToVault && model.isLastEnabledDestination(.vault)
                     )
 
-                    destinationRow(
+                    comingSoonRow(
                         icon: "icloud.fill",
                         color: .cyan,
                         title: "iCloud",
-                        detail: "Upload the completed recording to your private iCloud database.",
-                        isOn: iCloudBinding,
-                        disabled: model.saveToICloud && model.isLastEnabledDestination(.iCloud)
+                        detail: "Protect a copy in your private iCloud storage."
                     )
 
-                    HStack(spacing: 14) {
-                        destinationIcon("externaldrive.connected.to.line.below", color: .green)
-                        VStack(alignment: .leading, spacing: 3) {
-                            HStack(spacing: 8) {
-                                Text("Google Drive")
-                                    .font(.body.weight(.semibold))
-                                Text("COMING SOON")
-                                    .font(.system(size: 9, weight: .bold))
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 3)
-                                    .background(.secondary.opacity(0.2), in: Capsule())
-                            }
-                            Text("Save a copy to a connected Google Drive account.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Toggle("Google Drive", isOn: .constant(false))
-                            .labelsHidden()
-                            .disabled(true)
-                    }
-                    .opacity(0.55)
-                    .padding(.vertical, 4)
+                    comingSoonRow(
+                        icon: "externaldrive.connected.to.line.below",
+                        color: .green,
+                        title: "Google Drive",
+                        detail: "Save a copy to a connected Google Drive account."
+                    )
                 } header: {
                     Text("Save every recording to")
                 } footer: {
-                    Text("At least one destination must stay on. If Camera Roll or iCloud fails, Vigil keeps a local fallback copy in the Vigil Vault.")
-                }
-
-                Section("iCloud status") {
-                    HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: model.iCloudAvailability == .available ? "checkmark.icloud.fill" : "icloud.slash")
-                            .font(.title2)
-                            .foregroundStyle(model.iCloudAvailability == .available ? .green : .orange)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(model.iCloudAvailability.title)
-                                .font(.headline)
-                            Text(model.iCloudAvailability.detail)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer(minLength: 8)
-                        if model.iCloudAvailability != .available {
-                            Button("Retry") {
-                                Task { await model.refreshICloud() }
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(model.iCloudAvailability == .checking)
-                        }
-                    }
-                    .padding(.vertical, 4)
+                    Text("At least one available destination must stay on. If Camera Roll saving fails, Vigil keeps a local fallback copy in the Vigil Vault.")
                 }
 
                 Section("Privacy note") {
@@ -106,10 +63,6 @@ struct SettingsView: View {
 
     private var vaultBinding: Binding<Bool> {
         Binding(get: { model.saveToVault }, set: { model.setSaveToVault($0) })
-    }
-
-    private var iCloudBinding: Binding<Bool> {
-        Binding(get: { model.saveToICloud }, set: { model.setSaveToICloud($0) })
     }
 
     private func destinationRow(
@@ -143,5 +96,31 @@ struct SettingsView: View {
             .foregroundStyle(color)
             .frame(width: 36, height: 36)
             .background(color.opacity(0.14), in: RoundedRectangle(cornerRadius: 9))
+    }
+
+    private func comingSoonRow(icon: String, color: Color, title: String, detail: String) -> some View {
+        HStack(spacing: 14) {
+            destinationIcon(icon, color: color)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 8) {
+                    Text(title)
+                        .font(.body.weight(.semibold))
+                    Text("COMING SOON")
+                        .font(.system(size: 9, weight: .bold))
+                        .padding(.horizontal, 7)
+                        .padding(.vertical, 3)
+                        .background(.secondary.opacity(0.2), in: Capsule())
+                }
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Toggle(title, isOn: .constant(false))
+                .labelsHidden()
+                .disabled(true)
+        }
+        .opacity(0.55)
+        .padding(.vertical, 4)
     }
 }
