@@ -21,3 +21,9 @@ build/
 *.pem
 *.key
 *.mobileprovision
+
+# Vigil website
+website/node_modules/
+website/.next/
+website/out/
+.vercel/
