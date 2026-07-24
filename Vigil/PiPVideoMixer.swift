@@ -57,8 +57,11 @@ nonisolated final class PiPVideoMixer {
               let outputBuffer else { return nil }
 
         let fullImage = CIImage(cvPixelBuffer: fullScreen)
-        let pipImage = CIImage(cvPixelBuffer: pictureInPicture)
         let canvas = fullImage.extent
+        let pipImage = Self.normalizedPictureInPicture(
+            CIImage(cvPixelBuffer: pictureInPicture),
+            for: canvas
+        )
 
         let pipWidth = canvas.width * 0.29
         let pipHeight = canvas.height * 0.25
@@ -87,5 +90,39 @@ nonisolated final class PiPVideoMixer {
 
         context.render(composed, to: outputBuffer, bounds: canvas, colorSpace: colorSpace)
         return outputBuffer
+    }
+
+    static func normalizedPictureInPicture(_ image: CIImage, for canvas: CGRect) -> CIImage {
+        guard requiresQuarterTurn(sourceSize: image.extent.size, canvasSize: canvas.size) else {
+            return image
+        }
+
+        let rotatedImage = image.transformed(
+            by: CGAffineTransform(rotationAngle: .pi / 2)
+        )
+        return rotatedImage.transformed(
+            by: CGAffineTransform(
+                translationX: -rotatedImage.extent.minX,
+                y: -rotatedImage.extent.minY
+            )
+        )
+    }
+
+    static func requiresQuarterTurn(sourceSize: CGSize, canvasSize: CGSize) -> Bool {
+        guard sourceSize.width > 0,
+              sourceSize.height > 0,
+              canvasSize.width > 0,
+              canvasSize.height > 0 else {
+            return false
+        }
+
+        guard sourceSize.width != sourceSize.height,
+              canvasSize.width != canvasSize.height else {
+            return false
+        }
+
+        let sourceIsPortrait = sourceSize.height > sourceSize.width
+        let canvasIsPortrait = canvasSize.height > canvasSize.width
+        return sourceIsPortrait != canvasIsPortrait
     }
 }

@@ -40,6 +40,9 @@ final class CameraController: NSObject, ObservableObject {
     private var frontOutputConnection: AVCaptureConnection?
     private var backPreviewConnection: AVCaptureConnection?
     private var frontPreviewConnection: AVCaptureConnection?
+    private var backRotationCoordinator: AVCaptureDevice.RotationCoordinator?
+    private var frontRotationCoordinator: AVCaptureDevice.RotationCoordinator?
+    private var rotationObservations: [NSKeyValueObservation] = []
     private var sessionObserverTokens: [NSObjectProtocol] = []
     private var shouldResumeAfterInterruption = false
     private var isAppActive = true
@@ -132,6 +135,7 @@ final class CameraController: NSObject, ObservableObject {
                 cameraMode: selectedMode
             )
             if isDualCameraSupported {
+                applyCaptureRotationSnapshot()
                 try dualProcessor.startRecording(to: url, metadata: metadata)
             } else {
                 guard !movieOutput.isRecording else { return }
@@ -226,6 +230,9 @@ final class CameraController: NSObject, ObservableObject {
 
         primaryPreviewLayer.session = nil
         secondaryPreviewLayer.session = nil
+        rotationObservations.removeAll()
+        backRotationCoordinator = nil
+        frontRotationCoordinator = nil
         dualProcessor.reset()
     }
 
@@ -354,15 +361,6 @@ final class CameraController: NSObject, ObservableObject {
         let backPreviewConnection = AVCaptureConnection(inputPort: backPort, videoPreviewLayer: primaryPreviewLayer)
         let frontPreviewConnection = AVCaptureConnection(inputPort: frontPort, videoPreviewLayer: secondaryPreviewLayer)
 
-        for connection in [backOutputConnection, frontOutputConnection] where connection.isVideoRotationAngleSupported(90) {
-            connection.videoRotationAngle = 90
-        }
-        if backPreviewConnection.isVideoRotationAngleSupported(90) {
-            backPreviewConnection.videoRotationAngle = 90
-        }
-        if frontPreviewConnection.isVideoRotationAngleSupported(90) {
-            frontPreviewConnection.videoRotationAngle = 90
-        }
         frontOutputConnection.automaticallyAdjustsVideoMirroring = false
         frontOutputConnection.isVideoMirrored = false
         frontPreviewConnection.automaticallyAdjustsVideoMirroring = false
@@ -390,9 +388,94 @@ final class CameraController: NSObject, ObservableObject {
         self.frontOutputConnection = frontOutputConnection
         self.backPreviewConnection = backPreviewConnection
         self.frontPreviewConnection = frontPreviewConnection
+        configureRotationTracking(backCamera: backCamera, frontCamera: frontCamera)
         isPersistentMultiCamConfigured = true
         dualProcessor.setMode(selectedMode)
         applyActiveMultiCamMode()
+    }
+
+    private func configureRotationTracking(
+        backCamera: AVCaptureDevice,
+        frontCamera: AVCaptureDevice
+    ) {
+        rotationObservations.removeAll()
+
+        let backCoordinator = AVCaptureDevice.RotationCoordinator(
+            device: backCamera,
+            previewLayer: primaryPreviewLayer
+        )
+        let frontCoordinator = AVCaptureDevice.RotationCoordinator(
+            device: frontCamera,
+            previewLayer: secondaryPreviewLayer
+        )
+        backRotationCoordinator = backCoordinator
+        frontRotationCoordinator = frontCoordinator
+
+        rotationObservations = [
+            backCoordinator.observe(
+                \.videoRotationAngleForHorizonLevelPreview,
+                options: [.initial, .new]
+            ) { [weak self] coordinator, _ in
+                assert(Thread.isMainThread)
+                MainActor.assumeIsolated {
+                    self?.applyRotation(
+                        coordinator.videoRotationAngleForHorizonLevelPreview,
+                        to: self?.backPreviewConnection
+                    )
+                }
+            },
+            frontCoordinator.observe(
+                \.videoRotationAngleForHorizonLevelPreview,
+                options: [.initial, .new]
+            ) { [weak self] coordinator, _ in
+                assert(Thread.isMainThread)
+                MainActor.assumeIsolated {
+                    self?.applyRotation(
+                        coordinator.videoRotationAngleForHorizonLevelPreview,
+                        to: self?.frontPreviewConnection
+                    )
+                }
+            },
+            backCoordinator.observe(
+                \.videoRotationAngleForHorizonLevelCapture,
+                options: [.initial, .new]
+            ) { [weak self] _, _ in
+                assert(Thread.isMainThread)
+                MainActor.assumeIsolated {
+                    self?.applyCaptureRotationSnapshot()
+                }
+            },
+            frontCoordinator.observe(
+                \.videoRotationAngleForHorizonLevelCapture,
+                options: [.initial, .new]
+            ) { [weak self] _, _ in
+                assert(Thread.isMainThread)
+                MainActor.assumeIsolated {
+                    self?.applyCaptureRotationSnapshot()
+                }
+            }
+        ]
+    }
+
+    private func applyCaptureRotationSnapshot() {
+        guard !isRecording, !isFinalizing else { return }
+        if let backRotationCoordinator {
+            applyRotation(
+                backRotationCoordinator.videoRotationAngleForHorizonLevelCapture,
+                to: backOutputConnection
+            )
+        }
+        if let frontRotationCoordinator {
+            applyRotation(
+                frontRotationCoordinator.videoRotationAngleForHorizonLevelCapture,
+                to: frontOutputConnection
+            )
+        }
+    }
+
+    private func applyRotation(_ angle: CGFloat, to connection: AVCaptureConnection?) {
+        guard let connection, connection.isVideoRotationAngleSupported(angle) else { return }
+        connection.videoRotationAngle = angle
     }
 
     private func applyActiveMultiCamMode() {
@@ -484,6 +567,7 @@ final class CameraController: NSObject, ObservableObject {
         }
 
         readiness = .ready
+        applyCaptureRotationSnapshot()
         resumeRecordingAfterInterruptionIfNeeded()
     }
 
