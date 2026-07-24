@@ -46,16 +46,19 @@ nonisolated final class DualCameraProcessor: NSObject,
     }
 
     func startRecording(to outputURL: URL, metadata: RecordingCaptureMetadata) throws {
-        guard let videoSettings = backVideoOutput.recommendedVideoSettingsForAssetWriter(
-            writingTo: .mov
-        ),
-        let audioSettings = audioOutput.recommendedAudioSettingsForAssetWriter(
-            writingTo: .mov
-        ) else {
-            throw DualCameraProcessorError.missingWriterSettings
-        }
-
         try outputQueue.sync {
+            let activeVideoOutput = recordingMode == .front ? frontVideoOutput : backVideoOutput
+            guard let videoSettings = activeVideoOutput.recommendedVideoSettingsForAssetWriter(
+                writingTo: .mov
+            ),
+            let audioSettings = audioOutput.recommendedAudioSettingsForAssetWriter(
+                writingTo: .mov
+            ) else {
+                throw DualCameraProcessorError.missingWriterSettings
+            }
+
+            currentFrontSampleBuffer = nil
+            mixer.reset()
             recorder = try VigilMovieRecorder(
                 outputURL: outputURL,
                 videoSettings: videoSettings,
