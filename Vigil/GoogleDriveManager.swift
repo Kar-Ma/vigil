@@ -110,6 +110,11 @@ final class GoogleDriveManager: ObservableObject {
         }
     }
 
+    func disconnect() {
+        clearConnection(signOut: true)
+        lastErrorMessage = nil
+    }
+
     private func resolveAndOpenVigilFolder() async {
         defer { isOpeningFolder = false }
 

@@ -1,6 +1,6 @@
 # Vigil Privacy Notice
 
-This notice describes how the Vigil: Secure Camera public beta handles data as of July 27, 2026.
+This notice describes how Vigil: Secure Camera version 1.0 handles data as of July 27, 2026.
 
 ## Current data flow
 
@@ -19,6 +19,8 @@ Screen Curtain is an optional local display-privacy control. It covers the live 
 The emergency number selected in Vigil Settings is stored only on the iPhone. Tapping SOS asks iOS to open a telephone link for that number; Vigil does not place the call itself or receive information about the call.
 
 If Google Drive is enabled, Vigil asks the person to sign in with Google and requests the `drive.file` permission. This permission lets Vigil create and manage only the files it creates or that the person explicitly opens with Vigil; it does not give Vigil general read access to the rest of the person’s Drive. After a recording is completed, Vigil creates or finds a visible `Vigil` folder in that account and uploads an additional video copy directly from the iPhone to Google. The recording does not pass through a Vigil-operated server. Google’s privacy practices apply to the sign-in session and uploaded copy.
+
+Google Sign-In may process account information, identifiers, device information, usage information, and a coarse location derived from an IP address for app functionality, security, and Google service operations. Vigil does not use this information for advertising or tracking. The connected Google account can be disconnected inside Vigil Settings. Disconnecting stops new uploads and removes the connection from Vigil, but it does not delete files already stored in Google Drive.
 
 If iCloud Drive is enabled, Vigil saves an additional ordinary `.mov` file in `iCloud Drive/Vigil/Recordings`. The recording goes directly from the iPhone to the person’s own iCloud Drive and does not pass through a Vigil-operated server. The file is visible and manageable in Files, Finder, iCloud for Windows, and iCloud.com when signed into the same Apple Account. Apple’s iCloud privacy practices and the person’s iCloud storage quota apply.
 

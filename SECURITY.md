@@ -4,7 +4,7 @@ Vigil handles potentially sensitive recordings. Clear threat modeling and carefu
 
 ## Supported version
 
-Security work currently targets the latest commit on the `main` branch. No production release is supported yet.
+Security work currently targets Vigil 1.0 and the latest commit on the `main` branch.
 
 ## Report a vulnerability privately
 

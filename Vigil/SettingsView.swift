@@ -16,6 +16,8 @@ struct SettingsView: View {
     @State private var isShowingICloudSetup = false
     @State private var isRecheckingICloud = false
     @State private var didICloudRecheckFail = false
+    @State private var isShowingGoogleDriveAccount = false
+    @State private var isConfirmingGoogleDisconnect = false
     @State private var isShowingEmergencyNumberEditor = false
     @State private var draftEmergencyNumber = ""
     @State private var iCloudRecheckTask: Task<Void, Never>?
@@ -146,6 +148,23 @@ struct SettingsView: View {
                 } footer: {
                     Text("Vigil opens the iPhone call confirmation. Verify the correct emergency number for your location.")
                 }
+
+                Section {
+                    externalLinkRow(
+                        title: "Privacy Policy",
+                        icon: "hand.raised.fill",
+                        urlString: "https://keep-vigil.vercel.app/privacy"
+                    )
+                    externalLinkRow(
+                        title: "Help & Support",
+                        icon: "questionmark.circle.fill",
+                        urlString: "https://keep-vigil.vercel.app/support"
+                    )
+                } header: {
+                    Text("About")
+                } footer: {
+                    Text("Vigil \(appVersion)")
+                }
             }
             .navigationTitle("Settings")
             .toolbar {
@@ -163,6 +182,9 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $isShowingICloudSetup) {
                 iCloudSetupSheet
+            }
+            .sheet(isPresented: $isShowingGoogleDriveAccount) {
+                googleDriveAccountSheet
             }
             .sheet(isPresented: $isShowingEmergencyNumberEditor) {
                 emergencyNumberEditor
@@ -297,34 +319,30 @@ struct SettingsView: View {
     private var googleDriveRow: some View {
         HStack(spacing: 14) {
             destinationIcon("externaldrive.connected.to.line.below", color: .green)
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Google Drive")
-                    .font(.body.weight(.semibold))
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
-                if googleDrive.accountEmail != nil {
-                    Button {
-                        googleDrive.openVigilFolder()
-                    } label: {
-                        HStack(spacing: 4) {
-                            Text("Save a copy to Google Drive.")
-                            if googleDrive.isOpeningFolder {
-                                ProgressView()
-                                    .controlSize(.mini)
-                            } else {
-                                Image(systemName: "arrow.up.right")
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(.tertiary)
-                            }
+            if googleDrive.accountEmail != nil {
+                Button {
+                    isShowingGoogleDriveAccount = true
+                } label: {
+                    VStack(alignment: .leading, spacing: 3) {
+                        HStack(spacing: 5) {
+                            Text("Google Drive")
+                                .font(.body.weight(.semibold))
+                            Image(systemName: "chevron.right")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.tertiary)
                         }
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .contentShape(Rectangle())
+                        Text("Save a copy to Google Drive.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(googleDrive.isOpeningFolder)
-                    .accessibilityLabel("Open Vigil folder in Google Drive")
-                } else {
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Manage the connected Google Drive account")
+            } else {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Google Drive")
+                        .font(.body.weight(.semibold))
                     Text("Save a copy to Google Drive.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -336,6 +354,55 @@ struct SettingsView: View {
                 .disabled(googleDrive.isConnecting)
         }
         .padding(.vertical, 4)
+    }
+
+    private var googleDriveAccountSheet: some View {
+        NavigationStack {
+            List {
+                Section {
+                    LabeledContent("Connected account") {
+                        Text(googleDrive.accountEmail ?? "Google Drive")
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                    }
+
+                    Button {
+                        googleDrive.openVigilFolder()
+                    } label: {
+                        Label("Open Vigil Folder", systemImage: "folder.fill")
+                    }
+                    .disabled(googleDrive.isOpeningFolder)
+                } footer: {
+                    Text("Turning uploads off keeps this connection. Disconnecting removes Google access from Vigil on this iPhone.")
+                }
+
+                Section {
+                    Button("Disconnect Google Drive", role: .destructive) {
+                        isConfirmingGoogleDisconnect = true
+                    }
+                }
+            }
+            .navigationTitle("Google Drive")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        isShowingGoogleDriveAccount = false
+                    }
+                }
+            }
+            .alert("Disconnect Google Drive?", isPresented: $isConfirmingGoogleDisconnect) {
+                Button("Cancel", role: .cancel) {}
+                Button("Disconnect", role: .destructive) {
+                    googleDrive.disconnect()
+                    isShowingGoogleDriveAccount = false
+                }
+            } message: {
+                Text("New recordings will stop uploading. Files already saved in Google Drive will not be deleted.")
+            }
+        }
+        .presentationDetents([.medium])
     }
 
     private var iCloudRow: some View {
@@ -550,6 +617,33 @@ struct SettingsView: View {
             .foregroundStyle(color)
             .frame(width: 36, height: 36)
             .background(color.opacity(0.14), in: RoundedRectangle(cornerRadius: 9))
+    }
+
+    private func externalLinkRow(title: String, icon: String, urlString: String) -> some View {
+        Button {
+            guard let url = URL(string: urlString) else { return }
+            openURL(url)
+        } label: {
+            HStack(spacing: 14) {
+                destinationIcon(icon, color: .gray)
+                Text(title)
+                    .font(.body.weight(.semibold))
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+            .padding(.vertical, 4)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var appVersion: String {
+        let version = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleShortVersionString"
+        ) as? String ?? "1.0"
+        return "Version \(version)"
     }
 
     private func alwaysOnRow(icon: String, color: Color, title: String, detail: String) -> some View {
