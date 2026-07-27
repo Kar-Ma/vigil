@@ -13,7 +13,7 @@ The project is being developed in public so its privacy and security claims can 
 
 ## TestFlight beta
 
-[Join the Vigil Early Access beta on TestFlight](https://testflight.apple.com/join/5E5Cywaw). The link will begin accepting testers after Apple approves the first external beta build and is initially limited to 50 testers.
+[Join the Vigil beta on TestFlight](https://testflight.apple.com/join/5E5Cywaw). Vigil 1.0 (build 5) is currently awaiting App Store review.
 
 ## Current MVP
 
