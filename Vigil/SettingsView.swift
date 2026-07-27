@@ -13,6 +13,12 @@ struct SettingsView: View {
     @State private var isShowingVault = false
     @State private var isWaitingToOpenVault = false
     @State private var isShowingActionButtonSetup = false
+    @State private var isShowingICloudSetup = false
+    @State private var isRecheckingICloud = false
+    @State private var didICloudRecheckFail = false
+    @State private var isShowingEmergencyNumberEditor = false
+    @State private var draftEmergencyNumber = ""
+    @State private var iCloudRecheckTask: Task<Void, Never>?
 
     var body: some View {
         NavigationStack {
@@ -25,7 +31,7 @@ struct SettingsView: View {
                             icon: "lock.shield.fill",
                             color: .red,
                             title: "Vigil Vault",
-                            detail: "Every recording is always protected inside Vigil."
+                            detail: "Save securely in Vigil."
                         )
                     }
                     .buttonStyle(.plain)
@@ -35,7 +41,7 @@ struct SettingsView: View {
                         icon: "photo.on.rectangle",
                         color: .blue,
                         title: "Camera Roll",
-                        detail: model.cameraRollAccess.detail,
+                        detail: "Save a copy to Photos.",
                         isOn: cameraRollBinding,
                         disabled: model.cameraRollAccess == .restricted
                     )
@@ -110,25 +116,31 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    HStack(spacing: 14) {
-                        destinationIcon("cross.case.fill", color: .red)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("SOS number")
-                                .font(.body.weight(.semibold))
-                            Text(emergencyNumber.isEmpty ? "Enter the emergency number for your region." : "Used by the SOS button on Record.")
-                                .font(.caption)
+                    Button {
+                        draftEmergencyNumber = emergencyNumber
+                        isShowingEmergencyNumberEditor = true
+                    } label: {
+                        HStack(spacing: 14) {
+                            destinationIcon("cross.case.fill", color: .red)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("SOS number")
+                                    .font(.body.weight(.semibold))
+                                Text("Emergency number for your region.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(emergencyNumber.isEmpty ? "Not set" : emergencyNumber)
+                                .font(.body.monospacedDigit())
                                 .foregroundStyle(.secondary)
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.tertiary)
                         }
-                        Spacer()
-                        TextField("911", text: emergencyNumberBinding)
-                            .keyboardType(.phonePad)
-                            .textContentType(.telephoneNumber)
-                            .multilineTextAlignment(.trailing)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 88)
-                            .accessibilityLabel("Emergency number")
+                        .contentShape(Rectangle())
+                        .padding(.vertical, 4)
                     }
-                    .padding(.vertical, 4)
+                    .buttonStyle(.plain)
                 } header: {
                     Text("Emergency")
                 } footer: {
@@ -149,6 +161,12 @@ struct SettingsView: View {
             } message: {
                 Text("Open iPhone Settings → Action Button. Swipe to Shortcut, tap Choose a Shortcut, then select “Start Vigil Recording.”")
             }
+            .sheet(isPresented: $isShowingICloudSetup) {
+                iCloudSetupSheet
+            }
+            .sheet(isPresented: $isShowingEmergencyNumberEditor) {
+                emergencyNumberEditor
+            }
         }
         .onChange(of: vaultAccess.isUnlocked) { _, isUnlocked in
             guard isWaitingToOpenVault, isUnlocked else { return }
@@ -163,6 +181,11 @@ struct SettingsView: View {
         .onChange(of: isShowingVault) { wasShowing, isShowing in
             if wasShowing, !isShowing {
                 vaultAccess.lock()
+            }
+        }
+        .onChange(of: isShowingICloudSetup) { _, isShowing in
+            if !isShowing {
+                cancelICloudRecheck()
             }
         }
     }
@@ -185,20 +208,24 @@ struct SettingsView: View {
     }
 
     private var iCloudBinding: Binding<Bool> {
-        Binding(get: { model.saveToICloud }, set: { model.setSaveToICloud($0) })
+        Binding(
+            get: { model.saveToICloud },
+            set: { isOn in
+                Task {
+                    let didApply = await model.setSaveToICloud(isOn)
+                    if isOn && !didApply {
+                        didICloudRecheckFail = false
+                        isShowingICloudSetup = true
+                    }
+                }
+            }
+        )
     }
 
     private var screenCurtainBinding: Binding<Bool> {
         Binding(
             get: { screenCurtain.isGestureEnabled },
             set: { screenCurtain.setGestureEnabled($0) }
-        )
-    }
-
-    private var emergencyNumberBinding: Binding<String> {
-        Binding(
-            get: { emergencyNumber },
-            set: { emergencyNumber = EmergencyCallHandoff.sanitizedNumber($0) }
         )
     }
 
@@ -275,16 +302,12 @@ struct SettingsView: View {
                     .font(.body.weight(.semibold))
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
-                if let accountEmail = googleDrive.accountEmail {
+                if googleDrive.accountEmail != nil {
                     Button {
                         googleDrive.openVigilFolder()
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.green)
-                            Text(accountEmail)
-                                .lineLimit(1)
-                                .truncationMode(.middle)
+                            Text("Save a copy to Google Drive.")
                             if googleDrive.isOpeningFolder {
                                 ProgressView()
                                     .controlSize(.mini)
@@ -302,11 +325,9 @@ struct SettingsView: View {
                     .disabled(googleDrive.isOpeningFolder)
                     .accessibilityLabel("Open Vigil folder in Google Drive")
                 } else {
-                    Text(googleDriveDetail)
+                    Text("Save a copy to Google Drive.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
                 }
             }
             Spacer()
@@ -317,41 +338,19 @@ struct SettingsView: View {
         .padding(.vertical, 4)
     }
 
-    private var googleDriveDetail: String {
-        if googleDrive.isConnecting {
-            return "Connecting…"
-        }
-        if googleDrive.activeUploadCount > 0 {
-            return "Uploading to Google Drive…"
-        }
-        if let accountEmail = googleDrive.accountEmail {
-            return accountEmail
-        }
-        if let error = googleDrive.lastErrorMessage {
-            return error
-        }
-        return "Save a copy to a Vigil folder."
-    }
-
     private var iCloudRow: some View {
         HStack(spacing: 14) {
             destinationIcon("icloud.fill", color: .cyan)
             VStack(alignment: .leading, spacing: 3) {
                 Text("iCloud Drive")
                     .font(.body.weight(.semibold))
-                Text(iCloudDetail)
+                Text("Save a copy to iCloud Drive.")
                     .font(.caption)
-                    .foregroundStyle(iCloudDetailColor)
-                    .lineLimit(2)
+                    .foregroundStyle(.secondary)
             }
             Spacer()
-            if model.iCloudAvailability == .checking {
-                ProgressView()
-                    .controlSize(.small)
-            } else {
-                Toggle("iCloud Drive", isOn: iCloudBinding)
-                    .labelsHidden()
-            }
+            Toggle("iCloud Drive", isOn: iCloudBinding)
+                .labelsHidden()
         }
         .padding(.vertical, 4)
         .task {
@@ -359,30 +358,190 @@ struct SettingsView: View {
         }
     }
 
-    private var iCloudDetail: String {
-        if model.iCloudAvailability != .checking,
-           !model.iCloudAvailability.canUpload {
-            return model.iCloudAvailability.detail
+    private var iCloudSetupSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: 24) {
+                    Image(systemName: "icloud.and.arrow.up.fill")
+                        .font(.system(size: 42, weight: .semibold))
+                        .foregroundStyle(.cyan)
+                        .frame(width: 82, height: 82)
+                        .background(.cyan.opacity(0.14), in: RoundedRectangle(cornerRadius: 22))
+
+                    VStack(spacing: 8) {
+                        Text("Set up iCloud Drive")
+                            .font(.title2.bold())
+
+                        Text("Turn on iCloud Drive syncing so Vigil can save recordings you can access from another device.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                    }
+
+                    VStack(alignment: .leading, spacing: 18) {
+                        iCloudSetupStep(
+                            number: 1,
+                            title: "Open Settings",
+                            detail: "Return to the main Settings screen."
+                        )
+                        iCloudSetupStep(
+                            number: 2,
+                            title: "Go to iCloud Drive",
+                            detail: "Your name → iCloud → Drive."
+                        )
+                        iCloudSetupStep(
+                            number: 3,
+                            title: "Turn on “Sync this iPhone”",
+                            detail: "Then return to Vigil."
+                        )
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if didICloudRecheckFail {
+                        Label(
+                            "Vigil still can’t access iCloud Drive. Check that “Sync this iPhone” is on, then try again.",
+                            systemImage: "exclamationmark.triangle.fill"
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(.orange)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    VStack(spacing: 12) {
+                        Button {
+                            guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else {
+                                return
+                            }
+                            openURL(settingsURL)
+                        } label: {
+                            Label("Open Settings", systemImage: "gear")
+                                .frame(maxWidth: .infinity)
+                                .frame(minHeight: 52)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.cyan)
+
+                        Button {
+                            recheckICloudAndEnable()
+                        } label: {
+                            HStack {
+                                if isRecheckingICloud {
+                                    ProgressView()
+                                        .controlSize(.small)
+                                }
+                                Text(isRecheckingICloud ? "Checking…" : "Check Again")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: 52)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(isRecheckingICloud)
+                    }
+                }
+                .padding(24)
+            }
+            .background(Color(.systemGroupedBackground))
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Not Now") {
+                        cancelICloudRecheck()
+                        isShowingICloudSetup = false
+                    }
+                }
+            }
         }
-        if let error = model.iCloudLastErrorMessage {
-            return error
-        }
-        if !model.iCloudPendingIDs.isEmpty {
-            let count = model.iCloudPendingIDs.count
-            return count == 1
-                ? "1 recording is waiting to back up."
-                : "\(count) recordings are waiting to back up."
-        }
-        return model.iCloudAvailability.detail
+        .presentationDetents([.large])
     }
 
-    private var iCloudDetailColor: Color {
-        if !model.iCloudAvailability.canUpload
-            || model.iCloudLastErrorMessage != nil
-            || !model.iCloudPendingIDs.isEmpty {
-            return .orange
+    private var emergencyNumberEditor: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField("For example, 112", text: $draftEmergencyNumber)
+                        .keyboardType(.phonePad)
+                        .textContentType(.telephoneNumber)
+                        .font(.title2.monospacedDigit())
+                        .accessibilityLabel("Emergency number")
+                } header: {
+                    Text("Emergency number")
+                } footer: {
+                    Text("Enter the official emergency number for the country or region where you use Vigil.")
+                }
+
+                Section {
+                    Label(
+                        "Vigil will always show the iPhone call confirmation before placing the call.",
+                        systemImage: "checkmark.shield.fill"
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("SOS Number")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        isShowingEmergencyNumberEditor = false
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        emergencyNumber = EmergencyCallHandoff.sanitizedNumber(
+                            draftEmergencyNumber
+                        )
+                        isShowingEmergencyNumberEditor = false
+                    }
+                    .disabled(
+                        EmergencyCallHandoff.sanitizedNumber(draftEmergencyNumber).isEmpty
+                    )
+                }
+            }
         }
-        return .secondary
+        .presentationDetents([.medium])
+    }
+
+    private func iCloudSetupStep(number: Int, title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            Text("\(number)")
+                .font(.subheadline.bold())
+                .foregroundStyle(.white)
+                .frame(width: 28, height: 28)
+                .background(.cyan, in: Circle())
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.body.weight(.semibold))
+                Text(detail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func recheckICloudAndEnable() {
+        iCloudRecheckTask?.cancel()
+        iCloudRecheckTask = Task {
+            isRecheckingICloud = true
+            didICloudRecheckFail = false
+
+            let didEnable = await model.setSaveToICloud(true)
+            guard !Task.isCancelled else { return }
+
+            isRecheckingICloud = false
+            iCloudRecheckTask = nil
+            if didEnable {
+                isShowingICloudSetup = false
+            } else {
+                didICloudRecheckFail = true
+            }
+        }
+    }
+
+    private func cancelICloudRecheck() {
+        iCloudRecheckTask?.cancel()
+        iCloudRecheckTask = nil
+        isRecheckingICloud = false
     }
 
     private func destinationIcon(_ name: String, color: Color) -> some View {

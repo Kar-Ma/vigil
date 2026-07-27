@@ -26,11 +26,11 @@ enum RecordingMode: String, CaseIterable, Identifiable {
     var detail: String {
         switch self {
         case .rear:
-            "Uses less power."
+            "Captures what’s ahead using less power."
         case .front:
-            "Records you and what is behind you."
+            "Captures you."
         case .dual:
-            "Records both cameras with the front camera in picture-in-picture."
+            "Captures both sides at once."
         }
     }
 

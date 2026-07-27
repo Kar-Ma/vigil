@@ -121,41 +121,47 @@ final class VigilModel: ObservableObject {
     }
 
     func refreshICloud() async {
+        guard await checkICloudAvailability() else { return }
+        await processICloudQueue()
+    }
+
+    @discardableResult
+    func checkICloudAvailability() async -> Bool {
         iCloudAvailability = .checking
         iCloudAvailability = await cloudUploader.availability()
         if iCloudAvailability.canUpload {
             iCloudLastErrorMessage = nil
-            await processICloudQueue()
         }
+        return iCloudAvailability.canUpload
     }
 
-    func setSaveToICloud(_ isOn: Bool) {
+    @discardableResult
+    func setSaveToICloud(_ isOn: Bool) async -> Bool {
         guard isOn else {
             applyICloudPreference(false)
             captureNotice = CaptureNotice(
                 "Automatic iCloud Drive backup off",
                 tone: .information
             )
-            return
+            return true
         }
 
-        Task {
-            await refreshICloud()
-            guard iCloudAvailability.canUpload else {
-                applyICloudPreference(false)
-                captureNotice = CaptureNotice(
-                    iCloudAvailability.title,
-                    tone: .warning
-                )
-                return
-            }
-
-            applyICloudPreference(true)
+        guard await checkICloudAvailability() else {
+            applyICloudPreference(false)
             captureNotice = CaptureNotice(
-                "iCloud Drive ready for new recordings",
-                tone: .success
+                iCloudAvailability.title,
+                tone: .warning
             )
+            return false
         }
+
+        applyICloudPreference(true)
+        captureNotice = CaptureNotice(
+            "iCloud Drive ready for new recordings",
+            tone: .success
+        )
+        processICloudQueueInBackground()
+        return true
     }
 
     func reloadRecordings() {
@@ -524,6 +530,12 @@ final class VigilModel: ObservableObject {
         iCloudProcessingTask = task
         await task.value
         iCloudProcessingTask = nil
+    }
+
+    private func processICloudQueueInBackground() {
+        Task { [weak self] in
+            await self?.processICloudQueue()
+        }
     }
 
     private func drainICloudQueue() async {
