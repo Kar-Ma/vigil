@@ -1,6 +1,6 @@
 # Vigil Privacy Notice
 
-This notice describes how the Vigil: Secure Camera public beta handles data as of July 21, 2026.
+This notice describes how the Vigil: Secure Camera public beta handles data as of July 27, 2026.
 
 ## Current data flow
 
@@ -20,6 +20,8 @@ The emergency number selected in Vigil Settings is stored only on the iPhone. Ta
 
 If Google Drive is enabled, Vigil asks the person to sign in with Google and requests the `drive.file` permission. This permission lets Vigil create and manage only the files it creates or that the person explicitly opens with Vigil; it does not give Vigil general read access to the rest of the person’s Drive. After a recording is completed, Vigil creates or finds a visible `Vigil` folder in that account and uploads an additional video copy directly from the iPhone to Google. The recording does not pass through a Vigil-operated server. Google’s privacy practices apply to the sign-in session and uploaded copy.
 
+If iCloud Drive is enabled, Vigil saves an additional ordinary `.mov` file in `iCloud Drive/Vigil/Recordings`. The recording goes directly from the iPhone to the person’s own iCloud Drive and does not pass through a Vigil-operated server. The file is visible and manageable in Files, Finder, iCloud for Windows, and iCloud.com when signed into the same Apple Account. Apple’s iCloud privacy practices and the person’s iCloud storage quota apply.
+
 ## Permissions
 
 - **Camera:** captures video.
@@ -27,12 +29,13 @@ If Google Drive is enabled, Vigil asks the person to sign in with Google and req
 - **Photos — Add Only:** creates an optional Camera Roll copy. Vigil does not need to read the photo library.
 - **Face ID:** unlocks the Vigil Vault. If Face ID is unavailable, iOS may offer the device passcode.
 - **Google Drive (`drive.file`):** when enabled, signs the person in and lets Vigil create and manage its own uploaded recordings in that account.
+- **iCloud Drive:** when enabled, uses the Apple Account already configured on the device to create visible recording copies in Vigil’s iCloud Drive folder.
 
 Vigil does not currently request location permission or collect location for a recording.
 
 ## Cloud features
 
-iCloud is marked “Coming Soon” and does not receive recordings in the current UI. The repository includes disabled CloudKit experimentation for future development; it is not active in the shipped MVP configuration.
+iCloud Drive is optional. Copying begins only after iOS has finalized a recording; Vigil does not stream an in-progress recording. Vigil waits for iOS to report that the file has uploaded before marking the iCloud destination as saved. If synchronization is delayed or unavailable, the recording remains in the local Vault and in Vigil’s retry queue. Turning iCloud Drive off stops new copies and does not delete files already stored in `iCloud Drive/Vigil/Recordings`.
 
 Google Drive is optional. Uploading begins only after iOS has finalized a recording; Vigil does not currently stream an in-progress recording or retry uploads durably in the background. Turning Google Drive off stops new uploads but keeps the Google account connected so the option can be enabled again without signing in. It does not delete copies already uploaded or revoke Vigil’s grant from the person’s Google Account. A person can revoke that access separately from their Google Account.
 
@@ -40,7 +43,7 @@ Any future cloud feature must document what is uploaded, when it is uploaded, wh
 
 ## Deletion and retention
 
-Vault recordings remain on the device until the person deletes them inside Vigil or removes the app. Deleting the app removes its local Vault. Camera Roll, Google Drive, and shared copies must be deleted separately from their respective destinations. A person can also manage or revoke Vigil’s Google access from their Google Account.
+Vault recordings remain on the device until the person deletes them inside Vigil or removes the app. Deleting the app removes its local Vault. Camera Roll, Google Drive, iCloud Drive, and shared copies must be deleted separately from their respective destinations. A person can also manage or revoke Vigil’s Google access from their Google Account. Deleting an iCloud Drive file through Vigil removes that cloud file but does not remove a separate local Vault copy.
 
 ## Scope and limitations
 

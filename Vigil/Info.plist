@@ -45,6 +45,18 @@
 	<string>Vigil records audio with your video so the full context is preserved.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Vigil saves a copy of your recording to your Camera Roll when you choose that option.</string>
+	<key>NSUbiquitousContainers</key>
+	<dict>
+		<key>iCloud.com.karthikmahadevan.vigil</key>
+		<dict>
+			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
+			<true/>
+			<key>NSUbiquitousContainerName</key>
+			<string>Vigil</string>
+			<key>NSUbiquitousContainerSupportedFolderLevels</key>
+			<string>Any</string>
+		</dict>
+	</dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

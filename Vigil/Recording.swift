@@ -35,14 +35,22 @@ struct VigilRecording: Identifiable, Hashable {
     }
 
     var fileSize: String {
+        guard let fileSizeInBytes else {
+            return "—"
+        }
+
+        return ByteCountFormatter.string(fromByteCount: fileSizeInBytes, countStyle: .file)
+    }
+
+    var fileSizeInBytes: Int64? {
         guard
             let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
             let size = values.fileSize
         else {
-            return "—"
+            return nil
         }
 
-        return ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
+        return Int64(size)
     }
 }
 
@@ -88,5 +96,34 @@ enum RecordingFiles {
                 )
             }
             .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    static func restore(
+        cloudAssetAt sourceURL: URL,
+        filename: String,
+        createdAt: Date
+    ) throws -> VigilRecording {
+        let recordingDirectory = try directory()
+        let safeFilename = URL(fileURLWithPath: filename).lastPathComponent
+        let fallbackFilename = "vigil-\(UUID().uuidString.lowercased()).mov"
+        let resolvedFilename = safeFilename.lowercased().hasSuffix(".mov")
+            ? safeFilename
+            : fallbackFilename
+        let destinationURL = recordingDirectory.appendingPathComponent(resolvedFilename)
+
+        if FileManager.default.fileExists(atPath: destinationURL.path) {
+            return VigilRecording(url: destinationURL, createdAt: createdAt)
+        }
+
+        try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+        try FileManager.default.setAttributes(
+            [
+                .creationDate: createdAt,
+                .modificationDate: createdAt,
+                .protectionKey: FileProtectionType.completeUntilFirstUserAuthentication
+            ],
+            ofItemAtPath: destinationURL.path
+        )
+        return VigilRecording(url: destinationURL, createdAt: createdAt)
     }
 }

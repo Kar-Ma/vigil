@@ -32,7 +32,12 @@ final class VigilModel: ObservableObject {
     @Published private(set) var recordings: [VigilRecording] = []
     @Published private(set) var iCloudAvailability: ICloudAvailability = .checking
     @Published private(set) var uploadingIDs: Set<String> = []
-    @Published private(set) var protectedIDs: Set<String> = []
+    @Published private(set) var iCloudBackedUpIDs: Set<String> = []
+    @Published private(set) var iCloudPendingIDs: Set<String> = []
+    @Published private(set) var iCloudRecordings: [ICloudRecordingSummary] = []
+    @Published private(set) var iCloudRestoringIDs: Set<String> = []
+    @Published private(set) var isRefreshingICloudRecordings = false
+    @Published private(set) var iCloudLastErrorMessage: String?
     @Published private(set) var saveToCameraRoll: Bool
     @Published private(set) var cameraRollAccess: PhotoLibraryAccess = .notDetermined
     @Published private(set) var saveToICloud: Bool
@@ -63,31 +68,39 @@ final class VigilModel: ObservableObject {
 
     private let cloudUploader = CloudUploader()
     private let photoLibrarySaver = PhotoLibrarySaver()
-    private let protectedDefaultsKey = "protectedRecordingIDs"
+    private let iCloudBackedUpDefaultsKey = "iCloudDriveBackedUpRecordingIDs"
+    private let iCloudPendingDefaultsKey = "pendingICloudDriveRecordingIDs"
     private let cameraRollDefaultsKey = "saveToCameraRoll"
     private let iCloudDefaultsKey = "saveToICloud"
     private let recordingModeDefaultsKey = "defaultRecordingMode"
     private var hasPendingQuickRecording = false
     private var hasRestoredGoogleDriveConnection = false
+    private var iCloudProcessingTask: Task<Void, Never>?
 
     init() {
         saveToCameraRoll = UserDefaults.standard.object(forKey: cameraRollDefaultsKey) as? Bool ?? false
-        saveToICloud = false
+        saveToICloud = UserDefaults.standard.object(forKey: iCloudDefaultsKey) as? Bool ?? false
         defaultRecordingMode = RecordingMode(
             rawValue: UserDefaults.standard.string(forKey: recordingModeDefaultsKey) ?? ""
         ) ?? .rear
-        UserDefaults.standard.set(false, forKey: iCloudDefaultsKey)
-        protectedIDs = Set(UserDefaults.standard.stringArray(forKey: protectedDefaultsKey) ?? [])
+        iCloudBackedUpIDs = Set(
+            UserDefaults.standard.stringArray(forKey: iCloudBackedUpDefaultsKey) ?? []
+        )
+        iCloudPendingIDs = Set(
+            UserDefaults.standard.stringArray(forKey: iCloudPendingDefaultsKey) ?? []
+        )
         reloadRecordings()
     }
 
     func start() async {
         async let cameraPreparation: Void = camera.prepare()
         async let googleDriveRestoration: Void = restoreGoogleDriveConnectionIfNeeded()
+        async let iCloudPreparation: Void = prepareICloud()
         refreshCameraRollAccess()
         await cameraPreparation
         fulfillPendingQuickRecordingIfPossible()
         await googleDriveRestoration
+        await iCloudPreparation
     }
 
     func requestQuickRecording() {
@@ -110,6 +123,39 @@ final class VigilModel: ObservableObject {
     func refreshICloud() async {
         iCloudAvailability = .checking
         iCloudAvailability = await cloudUploader.availability()
+        if iCloudAvailability.canUpload {
+            iCloudLastErrorMessage = nil
+            await processICloudQueue()
+        }
+    }
+
+    func setSaveToICloud(_ isOn: Bool) {
+        guard isOn else {
+            applyICloudPreference(false)
+            captureNotice = CaptureNotice(
+                "Automatic iCloud Drive backup off",
+                tone: .information
+            )
+            return
+        }
+
+        Task {
+            await refreshICloud()
+            guard iCloudAvailability.canUpload else {
+                applyICloudPreference(false)
+                captureNotice = CaptureNotice(
+                    iCloudAvailability.title,
+                    tone: .warning
+                )
+                return
+            }
+
+            applyICloudPreference(true)
+            captureNotice = CaptureNotice(
+                "iCloud Drive ready for new recordings",
+                tone: .success
+            )
+        }
     }
 
     func reloadRecordings() {
@@ -144,8 +190,8 @@ final class VigilModel: ObservableObject {
     func delete(_ recording: VigilRecording) {
         do {
             try FileManager.default.removeItem(at: recording.url)
-            protectedIDs.remove(recording.id)
-            saveProtectedIDs()
+            iCloudPendingIDs.remove(recording.id)
+            saveICloudState()
             reloadRecordings()
         } catch {
             captureNotice = CaptureNotice(
@@ -156,25 +202,97 @@ final class VigilModel: ObservableObject {
     }
 
     @discardableResult
-    func upload(_ recording: VigilRecording) async -> Bool {
-        guard !uploadingIDs.contains(recording.id) else { return false }
-        uploadingIDs.insert(recording.id)
-        defer { uploadingIDs.remove(recording.id) }
+    func backupToICloud(_ recording: VigilRecording) async -> Bool {
+        let didBackUp = await queueICloudBackup(recording)
+        if didBackUp {
+            captureNotice = CaptureNotice("Saved to iCloud Drive", tone: .success)
+        } else {
+            captureNotice = CaptureNotice(
+                "iCloud Drive waiting · Safe in Vault",
+                tone: .warning
+            )
+        }
+        return didBackUp
+    }
+
+    func refreshICloudBackups() async {
+        guard !isRefreshingICloudRecordings else { return }
+
+        if !iCloudAvailability.canUpload {
+            await refreshICloud()
+        }
+        guard iCloudAvailability.canUpload else { return }
+
+        isRefreshingICloudRecordings = true
+        defer { isRefreshingICloudRecordings = false }
 
         do {
-            try await cloudUploader.upload(recording)
-            protectedIDs.insert(recording.id)
-            saveProtectedIDs()
-            iCloudAvailability = .available
+            let summaries = try await cloudUploader.listRecordings()
+                .filter(\.isUploaded)
+            iCloudRecordings = summaries
+            iCloudBackedUpIDs.formUnion(summaries.map(\.id))
+            iCloudLastErrorMessage = nil
+            saveICloudState()
+        } catch {
+            iCloudLastErrorMessage = CloudUploader.friendlyMessage(for: error)
+        }
+    }
+
+    @discardableResult
+    func restoreFromICloud(_ summary: ICloudRecordingSummary) async -> Bool {
+        guard !iCloudRestoringIDs.contains(summary.id) else { return false }
+        iCloudRestoringIDs.insert(summary.id)
+        defer { iCloudRestoringIDs.remove(summary.id) }
+
+        do {
+            let iCloudDriveURL = try await cloudUploader.downloadedURL(for: summary)
+            _ = try RecordingFiles.restore(
+                cloudAssetAt: iCloudDriveURL,
+                filename: summary.filename,
+                createdAt: summary.createdAt
+            )
+            iCloudBackedUpIDs.insert(summary.id)
+            saveICloudState()
+            reloadRecordings()
             captureNotice = CaptureNotice(
-                "Saved to iCloud",
+                "Restored to Vigil Vault",
                 tone: .success
             )
             return true
         } catch {
-            iCloudAvailability = .notConfigured(CloudUploader.friendlyMessage(for: error))
+            iCloudLastErrorMessage = CloudUploader.friendlyMessage(for: error)
             captureNotice = CaptureNotice(
-                "iCloud waiting · Safe in Vault",
+                "iCloud Drive restore couldn’t finish",
+                tone: .warning
+            )
+            return false
+        }
+    }
+
+    func deleteICloudBackup(_ summary: ICloudRecordingSummary) async -> Bool {
+        await deleteICloudBackup(recordingID: summary.id)
+    }
+
+    func deleteICloudBackup(_ recording: VigilRecording) async -> Bool {
+        await deleteICloudBackup(recordingID: recording.id)
+    }
+
+    private func deleteICloudBackup(recordingID: String) async -> Bool {
+        do {
+            try await cloudUploader.delete(recordingID: recordingID)
+            iCloudRecordings.removeAll { $0.id == recordingID }
+            iCloudBackedUpIDs.remove(recordingID)
+            iCloudPendingIDs.remove(recordingID)
+            saveICloudState()
+            captureNotice = CaptureNotice(
+                "Removed from iCloud Drive",
+                tone: .success
+            )
+            return true
+        } catch {
+            iCloudLastErrorMessage = CloudUploader.friendlyMessage(for: error)
+            captureNotice = CaptureNotice(
+                "Couldn’t remove iCloud Drive backup",
                 tone: .warning
             )
             return false
@@ -185,17 +303,29 @@ final class VigilModel: ObservableObject {
         "Protected in Vigil Vault"
     }
 
+    func isBackedUpToICloud(_ recording: VigilRecording) -> Bool {
+        iCloudBackedUpIDs.contains(recording.id)
+    }
+
+    var cloudOnlyRecordings: [ICloudRecordingSummary] {
+        let localIDs = Set(recordings.map(\.id))
+        return iCloudRecordings.filter { !localIDs.contains($0.id) }
+    }
+
     private func recordingFinished(_ result: Result<URL, Error>) {
         switch result {
         case .success(let url):
             reloadRecordings()
-            let hasAdditionalCopies = saveToCameraRoll || googleDrive.isEnabled
+            let recordingID = url.deletingPathExtension().lastPathComponent
+            let recording = recordings.first(where: { $0.id == recordingID })
+                ?? VigilRecording(url: url, createdAt: Date())
+            let hasAdditionalCopies = saveToCameraRoll || googleDrive.isEnabled || saveToICloud
             captureNotice = saveNotice(
                 for: ["Vault"],
                 automaticallyClears: !hasAdditionalCopies
             )
             if hasAdditionalCopies {
-                Task { await saveToSelectedDestinations(recordingURL: url) }
+                Task { await saveToSelectedDestinations(recording: recording) }
             }
         case .failure:
             captureNotice = CaptureNotice(
@@ -249,13 +379,20 @@ final class VigilModel: ObservableObject {
         await googleDrive.restoreConnection()
     }
 
-    private func saveToSelectedDestinations(recordingURL: URL) async {
+    private func prepareICloud() async {
+        iCloudAvailability = await cloudUploader.availability()
+        guard iCloudAvailability.canUpload else { return }
+        iCloudLastErrorMessage = nil
+        await processICloudQueue()
+    }
+
+    private func saveToSelectedDestinations(recording: VigilRecording) async {
         var savedDestinations = ["Vault"]
         var failedDestinations: [String] = []
 
         if saveToCameraRoll {
             do {
-                try await photoLibrarySaver.saveVideo(at: recordingURL)
+                try await photoLibrarySaver.saveVideo(at: recording.url)
                 cameraRollAccess = .allowed
                 savedDestinations.append("Photos")
                 showSaveProgress(savedDestinations)
@@ -266,16 +403,28 @@ final class VigilModel: ObservableObject {
         }
 
         if googleDrive.isEnabled {
-            let recordingID = recordingURL.deletingPathExtension().lastPathComponent
-            uploadingIDs.insert(recordingID)
+            uploadingIDs.insert(recording.id)
             do {
-                try await googleDrive.uploadRecording(at: recordingURL, createdAt: Date())
+                try await googleDrive.uploadRecording(
+                    at: recording.url,
+                    createdAt: recording.createdAt
+                )
                 savedDestinations.append("Drive")
                 showSaveProgress(savedDestinations)
             } catch {
                 failedDestinations.append("Drive")
             }
-            uploadingIDs.remove(recordingID)
+            uploadingIDs.remove(recording.id)
+        }
+
+        if saveToICloud {
+            showICloudSyncing(savedDestinations)
+            if await queueICloudBackup(recording) {
+                savedDestinations.append("iCloud")
+                showSaveProgress(savedDestinations)
+            } else {
+                failedDestinations.append("iCloud")
+            }
         }
 
         if failedDestinations.isEmpty {
@@ -291,6 +440,16 @@ final class VigilModel: ObservableObject {
 
     private func showSaveProgress(_ destinations: [String]) {
         captureNotice = saveNotice(for: destinations, automaticallyClears: false)
+    }
+
+    private func showICloudSyncing(_ destinations: [String]) {
+        let orderedDestinations = orderedSaveDestinations(destinations)
+        captureNotice = CaptureNotice(
+            "\(saveStatusText(for: orderedDestinations)) · iCloud Drive syncing",
+            tone: .progress,
+            automaticallyClears: false,
+            savedDestinations: orderedDestinations
+        )
     }
 
     private func saveNotice(
@@ -311,7 +470,7 @@ final class VigilModel: ObservableObject {
     }
 
     private func orderedSaveDestinations(_ destinations: [String]) -> [String] {
-        ["Vault", "Drive", "Photos"].filter(destinations.contains)
+        ["Vault", "iCloud", "Drive", "Photos"].filter(destinations.contains)
     }
 
     private func refreshCameraRollAccess() {
@@ -326,7 +485,86 @@ final class VigilModel: ObservableObject {
         UserDefaults.standard.set(isOn, forKey: cameraRollDefaultsKey)
     }
 
-    private func saveProtectedIDs() {
-        UserDefaults.standard.set(Array(protectedIDs), forKey: protectedDefaultsKey)
+    private func applyICloudPreference(_ isOn: Bool) {
+        saveToICloud = isOn
+        UserDefaults.standard.set(isOn, forKey: iCloudDefaultsKey)
+    }
+
+    private func queueICloudBackup(_ recording: VigilRecording) async -> Bool {
+        if iCloudBackedUpIDs.contains(recording.id) {
+            return true
+        }
+
+        iCloudPendingIDs.insert(recording.id)
+        saveICloudState()
+
+        if !iCloudAvailability.canUpload {
+            iCloudAvailability = await cloudUploader.availability()
+        }
+        guard iCloudAvailability.canUpload else {
+            return false
+        }
+
+        await processICloudQueue()
+        return iCloudBackedUpIDs.contains(recording.id)
+    }
+
+    private func processICloudQueue() async {
+        guard iCloudAvailability.canUpload, !iCloudPendingIDs.isEmpty else { return }
+
+        if let iCloudProcessingTask {
+            await iCloudProcessingTask.value
+            return
+        }
+
+        let task = Task { [weak self] in
+            guard let self else { return }
+            await self.drainICloudQueue()
+        }
+        iCloudProcessingTask = task
+        await task.value
+        iCloudProcessingTask = nil
+    }
+
+    private func drainICloudQueue() async {
+        let localRecordingIDs = Set(recordings.map(\.id))
+        iCloudPendingIDs.formIntersection(localRecordingIDs)
+        saveICloudState()
+
+        while let recording = recordings
+            .filter({ iCloudPendingIDs.contains($0.id) })
+            .min(by: { $0.createdAt < $1.createdAt }) {
+            uploadingIDs.insert(recording.id)
+
+            do {
+                try await cloudUploader.upload(
+                    filename: recording.filename,
+                    fileURL: recording.url,
+                    fileSize: recording.fileSizeInBytes
+                )
+                uploadingIDs.remove(recording.id)
+                iCloudPendingIDs.remove(recording.id)
+                iCloudBackedUpIDs.insert(recording.id)
+                iCloudLastErrorMessage = nil
+                saveICloudState()
+            } catch {
+                uploadingIDs.remove(recording.id)
+                iCloudLastErrorMessage = CloudUploader.friendlyMessage(for: error)
+                iCloudAvailability = await cloudUploader.availability()
+                saveICloudState()
+                break
+            }
+        }
+    }
+
+    private func saveICloudState() {
+        UserDefaults.standard.set(
+            Array(iCloudBackedUpIDs),
+            forKey: iCloudBackedUpDefaultsKey
+        )
+        UserDefaults.standard.set(
+            Array(iCloudPendingIDs),
+            forKey: iCloudPendingDefaultsKey
+        )
     }
 }

@@ -51,12 +51,7 @@ struct SettingsView: View {
 
                     googleDriveRow
 
-                    comingSoonRow(
-                        icon: "icloud.fill",
-                        color: .cyan,
-                        title: "iCloud",
-                        detail: "Save a copy to your private iCloud storage."
-                    )
+                    iCloudRow
                 } header: {
                     Text("Save every recording to")
                 }
@@ -187,6 +182,10 @@ struct SettingsView: View {
 
     private var googleDriveBinding: Binding<Bool> {
         Binding(get: { googleDrive.isEnabled }, set: { googleDrive.setEnabled($0) })
+    }
+
+    private var iCloudBinding: Binding<Bool> {
+        Binding(get: { model.saveToICloud }, set: { model.setSaveToICloud($0) })
     }
 
     private var screenCurtainBinding: Binding<Bool> {
@@ -334,6 +333,58 @@ struct SettingsView: View {
         return "Save a copy to a Vigil folder."
     }
 
+    private var iCloudRow: some View {
+        HStack(spacing: 14) {
+            destinationIcon("icloud.fill", color: .cyan)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("iCloud Drive")
+                    .font(.body.weight(.semibold))
+                Text(iCloudDetail)
+                    .font(.caption)
+                    .foregroundStyle(iCloudDetailColor)
+                    .lineLimit(2)
+            }
+            Spacer()
+            if model.iCloudAvailability == .checking {
+                ProgressView()
+                    .controlSize(.small)
+            } else {
+                Toggle("iCloud Drive", isOn: iCloudBinding)
+                    .labelsHidden()
+            }
+        }
+        .padding(.vertical, 4)
+        .task {
+            await model.refreshICloud()
+        }
+    }
+
+    private var iCloudDetail: String {
+        if model.iCloudAvailability != .checking,
+           !model.iCloudAvailability.canUpload {
+            return model.iCloudAvailability.detail
+        }
+        if let error = model.iCloudLastErrorMessage {
+            return error
+        }
+        if !model.iCloudPendingIDs.isEmpty {
+            let count = model.iCloudPendingIDs.count
+            return count == 1
+                ? "1 recording is waiting to back up."
+                : "\(count) recordings are waiting to back up."
+        }
+        return model.iCloudAvailability.detail
+    }
+
+    private var iCloudDetailColor: Color {
+        if !model.iCloudAvailability.canUpload
+            || model.iCloudLastErrorMessage != nil
+            || !model.iCloudPendingIDs.isEmpty {
+            return .orange
+        }
+        return .secondary
+    }
+
     private func destinationIcon(_ name: String, color: Color) -> some View {
         Image(systemName: name)
             .font(.title3.weight(.semibold))
@@ -368,29 +419,4 @@ struct SettingsView: View {
         .padding(.vertical, 4)
     }
 
-    private func comingSoonRow(icon: String, color: Color, title: String, detail: String) -> some View {
-        HStack(spacing: 14) {
-            destinationIcon(icon, color: color)
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 8) {
-                    Text(title)
-                        .font(.body.weight(.semibold))
-                    Text("COMING SOON")
-                        .font(.system(size: 9, weight: .bold))
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(.secondary.opacity(0.2), in: Capsule())
-                }
-                Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Toggle(title, isOn: .constant(false))
-                .labelsHidden()
-                .disabled(true)
-        }
-        .opacity(0.55)
-        .padding(.vertical, 4)
-    }
 }

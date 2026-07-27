@@ -6,6 +6,7 @@ struct VaultView: View {
     @ObservedObject var access: VaultAccessController
     @State private var selectedRecording: VigilRecording?
     @State private var recordingPendingDeletion: VigilRecording?
+    @State private var cloudBackupPendingDeletion: ICloudRecordingSummary?
 
     var body: some View {
         Group {
@@ -24,12 +25,13 @@ struct VaultView: View {
             }
         }
         .sheet(item: $selectedRecording) { recording in
-            RecordingPlayer(recording: recording)
+            RecordingPlayer(recording: recording, model: model)
         }
         .onChange(of: access.isUnlocked) { _, isUnlocked in
             if !isUnlocked {
                 selectedRecording = nil
                 recordingPendingDeletion = nil
+                cloudBackupPendingDeletion = nil
             }
         }
         .alert(
@@ -48,7 +50,31 @@ struct VaultView: View {
                 recordingPendingDeletion = nil
             }
         } message: { recording in
-            Text("The copy on this iPhone will be removed. This cannot be undone inside Vigil.")
+            if model.isBackedUpToICloud(recording) {
+                Text("The copy on this iPhone will be removed. Its iCloud Drive copy will remain in Vigil › Recordings.")
+            } else {
+                Text("The copy on this iPhone will be removed. This cannot be undone inside Vigil.")
+            }
+        }
+        .alert(
+            "Delete this iCloud Drive copy?",
+            isPresented: Binding(
+                get: { cloudBackupPendingDeletion != nil },
+                set: { if !$0 { cloudBackupPendingDeletion = nil } }
+            ),
+            presenting: cloudBackupPendingDeletion
+        ) { summary in
+            Button("Delete from iCloud Drive", role: .destructive) {
+                Task {
+                    _ = await model.deleteICloudBackup(summary)
+                    cloudBackupPendingDeletion = nil
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                cloudBackupPendingDeletion = nil
+            }
+        } message: { _ in
+            Text("The file will be removed from iCloud Drive › Vigil › Recordings. A copy already restored to this iPhone will remain in Vigil Vault.")
         }
     }
 
@@ -80,9 +106,61 @@ struct VaultView: View {
                                 Label("Delete", systemImage: "trash")
                             }
                         }
+                        .swipeActions(edge: .leading) {
+                            if !model.isBackedUpToICloud(recording) {
+                                Button {
+                                    Task {
+                                        _ = await model.backupToICloud(recording)
+                                    }
+                                } label: {
+                                    Label("Back Up", systemImage: "icloud.and.arrow.up")
+                                }
+                                .tint(.cyan)
+                            }
+                        }
                     }
                 }
             }
+
+            if model.isRefreshingICloudRecordings || !model.cloudOnlyRecordings.isEmpty {
+                Section("Recover from iCloud Drive") {
+                    if model.isRefreshingICloudRecordings {
+                        HStack(spacing: 10) {
+                            ProgressView()
+                            Text("Checking iCloud Drive › Vigil › Recordings…")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    ForEach(model.cloudOnlyRecordings) { summary in
+                        Button {
+                            Task {
+                                _ = await model.restoreFromICloud(summary)
+                            }
+                        } label: {
+                            ICloudRecordingRow(
+                                summary: summary,
+                                isRestoring: model.iCloudRestoringIDs.contains(summary.id)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(model.iCloudRestoringIDs.contains(summary.id))
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                cloudBackupPendingDeletion = summary
+                            } label: {
+                                Label("Delete from iCloud Drive", systemImage: "trash")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .refreshable {
+            await model.refreshICloudBackups()
+        }
+        .task {
+            await model.refreshICloudBackups()
         }
     }
 
@@ -148,12 +226,22 @@ private struct RecordingRow: View {
                 Text(recording.fileSize)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Label(
-                    model.protectionTitle(for: recording),
-                    systemImage: "lock.shield.fill"
-                )
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.green)
+                if model.isBackedUpToICloud(recording) {
+                    Label("Protected in Vault + iCloud Drive", systemImage: "icloud.fill")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.green)
+                } else if model.iCloudPendingIDs.contains(recording.id) {
+                    Label("Vault safe · iCloud Drive waiting", systemImage: "icloud.slash")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.orange)
+                } else {
+                    Label(
+                        model.protectionTitle(for: recording),
+                        systemImage: "lock.shield.fill"
+                    )
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.green)
+                }
             }
             Spacer()
             if model.uploadingIDs.contains(recording.id) {
@@ -168,8 +256,45 @@ private struct RecordingRow: View {
     }
 }
 
+private struct ICloudRecordingRow: View {
+    let summary: ICloudRecordingSummary
+    let isRestoring: Bool
+
+    var body: some View {
+        HStack(spacing: 13) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 11)
+                    .fill(Color.cyan.opacity(0.16))
+                    .frame(width: 52, height: 52)
+                Image(systemName: "icloud.and.arrow.down.fill")
+                    .foregroundStyle(.cyan)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(summary.formattedDate)
+                    .font(.subheadline.weight(.semibold))
+                Text(summary.formattedFileSize)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("Tap to restore to this iPhone")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.cyan)
+            }
+            Spacer()
+            if isRestoring {
+                ProgressView()
+            } else {
+                Image(systemName: "arrow.down.circle")
+                    .font(.title3)
+                    .foregroundStyle(.cyan)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
 private struct RecordingPlayer: View {
     let recording: VigilRecording
+    @ObservedObject var model: VigilModel
     @Environment(\.dismiss) private var dismiss
     @State private var player: AVPlayer
     @State private var isShowingShareChoices = false
@@ -178,9 +303,11 @@ private struct RecordingPlayer: View {
     @State private var sharedURL: URL?
     @State private var temporaryStampedURL: URL?
     @State private var exportErrorMessage: String?
+    @State private var isShowingCloudRemovalConfirmation = false
 
-    init(recording: VigilRecording) {
+    init(recording: VigilRecording, model: VigilModel) {
         self.recording = recording
+        self.model = model
         _player = State(initialValue: AVPlayer(url: recording.url))
     }
 
@@ -205,7 +332,7 @@ private struct RecordingPlayer: View {
                 .navigationTitle(recording.formattedDate)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
+                    ToolbarItemGroup(placement: .topBarLeading) {
                         Button {
                             player.pause()
                             isShowingShareChoices = true
@@ -213,6 +340,26 @@ private struct RecordingPlayer: View {
                             Label("Share", systemImage: "square.and.arrow.up")
                         }
                         .disabled(isPreparingStampedCopy)
+
+                        if model.uploadingIDs.contains(recording.id) {
+                            ProgressView()
+                        } else if model.isBackedUpToICloud(recording) {
+                            Button {
+                                isShowingCloudRemovalConfirmation = true
+                            } label: {
+                                Label("iCloud Drive copy saved", systemImage: "icloud.fill")
+                            }
+                            .tint(.cyan)
+                        } else {
+                            Button {
+                                Task {
+                                    _ = await model.backupToICloud(recording)
+                                }
+                            } label: {
+                                Label("Back Up to iCloud Drive", systemImage: "icloud.and.arrow.up")
+                            }
+                            .tint(.cyan)
+                        }
                     }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") { dismiss() }
@@ -255,6 +402,19 @@ private struct RecordingPlayer: View {
                     Button("OK", role: .cancel) {}
                 } message: {
                     Text(exportErrorMessage ?? "Please try again.")
+                }
+                .alert(
+                    "Remove the iCloud Drive copy?",
+                    isPresented: $isShowingCloudRemovalConfirmation
+                ) {
+                    Button("Remove from iCloud Drive", role: .destructive) {
+                        Task {
+                            _ = await model.deleteICloudBackup(recording)
+                        }
+                    }
+                    Button("Cancel", role: .cancel) {}
+                } message: {
+                    Text("The Vault copy on this iPhone will remain. Only the file in iCloud Drive › Vigil › Recordings will be deleted.")
                 }
         }
     }

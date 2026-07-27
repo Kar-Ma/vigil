@@ -133,7 +133,8 @@ struct CaptureView: View {
             } else if camera.isChangingMode {
                 statusLine("Switching camera…", color: .white, showsProgress: true)
             } else if let notice = model.captureNotice {
-                if let destinations = notice.savedDestinations {
+                if let destinations = notice.savedDestinations,
+                   notice.tone != .progress {
                     savedDestinationsLine(destinations)
                 } else {
                     statusLine(
