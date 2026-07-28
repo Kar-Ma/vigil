@@ -2,9 +2,6 @@
 
 Vigil is an open-source iOS safety app for recording important moments and making the resulting video harder to lose or casually access.
 
-> [!WARNING]
-> Vigil is an early prototype, not a finished emergency or evidence-preservation service. Do not rely on it as the only way to protect a recording, contact emergency services, or establish authenticity in a legal proceeding.
-
 ## Why Vigil
 
 In a stressful encounter, a person may need to record quickly while worrying that their phone could be taken, damaged, or searched. Vigil is exploring a simple recording experience with protected local storage and optional copies in destinations the person controls.
@@ -54,6 +51,8 @@ The project is being developed in public so its privacy and security claims can 
 - Vigil does not collect or embed location in the current MVP.
 - Recording laws vary by location. The person recording is responsible for understanding the rules that apply to them.
 - The iOS Simulator has no usable camera; recording must be tested on an iPhone.
+
+Vigil is under active development and should be used alongside—not instead of—other ways to preserve important recordings or contact emergency services.
 
 See [PRIVACY.md](PRIVACY.md) and [SECURITY.md](SECURITY.md) for the current data flow and threat model.
 
