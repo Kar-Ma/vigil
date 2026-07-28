@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct CaptureView: View {
     @ObservedObject var model: VigilModel
@@ -7,6 +8,9 @@ struct CaptureView: View {
     @AppStorage(EmergencyCallHandoff.defaultsKey)
     private var emergencyNumber = EmergencyCallHandoff.defaultNumber
     @Environment(\.openURL) private var openURL
+    @State private var controlRotation: Angle = .zero
+    @State private var controlsAreLandscape = false
+    @State private var landscapeStatusOnLeadingEdge = false
     let allowsScreenCurtainGesture: Bool
     let openSettings: () -> Void
 
@@ -47,11 +51,35 @@ struct CaptureView: View {
                     header
                 }
                 Spacer()
-                recordingStatus
+                idlePrompt
                 bottomControls
                     .padding(.bottom, 28)
             }
             .padding(.horizontal, 20)
+
+            if showsCompactStatus {
+                if controlsAreLandscape {
+                    GeometryReader { geometry in
+                        compactRecordingStatus
+                            .frame(maxWidth: 190)
+                            .position(
+                                x: landscapeStatusOnLeadingEdge
+                                    ? 36
+                                    : geometry.size.width - 36,
+                                y: geometry.size.height / 2
+                            )
+                    }
+                    .ignoresSafeArea()
+                } else {
+                    VStack {
+                        compactRecordingStatus
+                            .frame(maxWidth: 190)
+                        Spacer()
+                    }
+                    .padding(.top, 10)
+                    .padding(.horizontal, 20)
+                }
+            }
         }
         .task(id: model.captureNotice) {
             guard let notice = model.captureNotice,
@@ -64,6 +92,24 @@ struct CaptureView: View {
         .animation(.easeInOut(duration: 0.38), value: camera.isFinalizing)
         .animation(.easeInOut(duration: 0.38), value: camera.isChangingMode)
         .animation(.easeInOut(duration: 0.15), value: screenCurtain.isActive)
+        .onAppear {
+            UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+            updateControlOrientation(UIDevice.current.orientation)
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: UIDevice.orientationDidChangeNotification
+            )
+        ) { _ in
+            updateControlOrientation(UIDevice.current.orientation)
+        }
+        .onChange(of: camera.isRecording) { _, isRecording in
+            guard !isRecording else { return }
+            updateControlOrientation(UIDevice.current.orientation)
+        }
+        .onDisappear {
+            UIDevice.current.endGeneratingDeviceOrientationNotifications()
+        }
         .background {
             ThreeFingerTripleTapRecognizer(
                 isEnabled: screenCurtain.isGestureEnabled && allowsScreenCurtainGesture,
@@ -93,135 +139,110 @@ struct CaptureView: View {
         .padding(.top, 10)
     }
 
-    @ViewBuilder
-    private var recordingStatus: some View {
+    private var idlePrompt: some View {
         VStack(spacing: 7) {
-            if camera.isRecording, let start = camera.recordingStartedAt {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    Text(elapsed(from: start, to: context.date))
-                        .font(.system(size: 34, weight: .medium, design: .monospaced))
-                        .shadow(color: .black.opacity(0.75), radius: 3)
-                }
-                .transition(.opacity)
-            } else if screenCurtain.isActive {
-                Text("Screen Curtain")
-                    .font(.title3.weight(.semibold))
-                    .shadow(color: .black.opacity(0.75), radius: 3)
-                    .transition(.opacity)
-            } else if model.captureNotice == nil,
-                      !camera.isFinalizing,
-                      !camera.isChangingMode,
-                      camera.readiness == .ready {
-                Text("Ready when you are")
-                    .font(.title3.weight(.semibold))
-                    .shadow(color: .black.opacity(0.75), radius: 3)
-                    .transition(.opacity)
-            } else {
-                Color.clear
-                    .frame(height: 28)
-                    .transition(.opacity)
-            }
+            Text("Ready when you are")
+                .font(.title3.weight(.semibold))
+                .shadow(color: .black.opacity(0.75), radius: 3)
 
-            if camera.isRecording {
-                statusLine(
-                    recordingLine,
-                    icon: "circle.fill",
-                    color: .red
-                )
-            } else if camera.isFinalizing {
-                statusLine("Saving recording…", color: .white, showsProgress: true)
-            } else if camera.isChangingMode {
-                statusLine("Switching camera…", color: .white, showsProgress: true)
-            } else if let notice = model.captureNotice {
-                if let destinations = notice.savedDestinations,
-                   notice.tone != .progress {
-                    savedDestinationsLine(destinations)
-                } else {
-                    statusLine(
-                        notice.title,
-                        icon: noticeIcon(for: notice.tone),
-                        color: noticeColor(for: notice.tone),
-                        showsProgress: notice.tone == .progress
-                    )
-                }
-            } else if screenCurtain.isActive {
-                statusLine(
-                    "Triple-tap to reveal",
-                    icon: "eye.slash.fill",
-                    color: .white
-                )
-            } else if camera.readiness == .ready {
-                statusLine("Tap once to begin recording", color: .secondary)
-            }
+            Text("Tap once to begin recording")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .shadow(color: .black.opacity(0.85), radius: 3)
         }
         .frame(height: 94, alignment: .bottom)
+        .opacity(
+            camera.readiness == .ready
+                && !showsCompactStatus
+                && !screenCurtain.isActive
+                && !controlsAreLandscape
+                ? 1
+                : 0
+        )
+        .animation(.easeInOut(duration: 0.35), value: showsCompactStatus)
+        .animation(.easeInOut(duration: 0.35), value: controlsAreLandscape)
+        .accessibilityHidden(showsCompactStatus || controlsAreLandscape)
     }
 
-    private var recordingLine: String {
-        guard let notice = model.captureNotice,
-              notice.tone == .success else { return "Recording" }
-        return "Recording · \(notice.title)"
+    private var showsCompactStatus: Bool {
+        camera.isRecording
+            || camera.isFinalizing
+            || camera.isChangingMode
+            || model.captureNotice != nil
+            || screenCurtain.isActive
     }
 
-    private func statusLine(
-        _ text: String,
-        icon: String? = nil,
-        color: Color,
-        showsProgress: Bool = false
-    ) -> some View {
-        ZStack {
-            HStack(spacing: 8) {
-                if showsProgress {
+    @ViewBuilder
+    private var compactRecordingStatus: some View {
+        Group {
+            if camera.isRecording, let start = camera.recordingStartedAt {
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                    landscapeStatusCapsule {
+                        Image(systemName: "circle.fill")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.red)
+                        Text(elapsed(from: start, to: context.date))
+                            .font(.system(.subheadline, design: .monospaced).weight(.semibold))
+                    }
+                }
+            } else if camera.isFinalizing {
+                landscapeStatusCapsule {
                     ProgressView()
                         .controlSize(.small)
-                        .tint(color)
-                } else if let icon {
-                    Image(systemName: icon)
-                        .font(.system(size: 11, weight: .bold))
+                        .tint(.white)
+                    Text("Saving…")
                 }
-
-                Text(text)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
+            } else if camera.isChangingMode {
+                landscapeStatusCapsule {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.white)
+                    Text("Switching camera…")
+                }
+            } else if let notice = model.captureNotice {
+                landscapeStatusCapsule {
+                    if notice.tone == .progress {
+                        ProgressView()
+                            .controlSize(.small)
+                            .tint(.white)
+                    } else if let icon = noticeIcon(for: notice.tone) {
+                        Image(systemName: icon)
+                            .foregroundStyle(noticeColor(for: notice.tone))
+                    }
+                    Text(notice.savedDestinations == nil ? notice.title : "Saved")
+                        .foregroundStyle(noticeColor(for: notice.tone))
+                }
+            } else if screenCurtain.isActive {
+                landscapeStatusCapsule {
+                    Image(systemName: "eye.slash.fill")
+                    Text("Screen Curtain")
+                }
             }
-            .id(text)
-            .transition(.opacity)
         }
-        .frame(maxWidth: .infinity, minHeight: 20)
-        .font(.subheadline.weight(.semibold))
-        .foregroundStyle(color)
-        .shadow(color: .black.opacity(0.85), radius: 3)
-        .animation(.easeInOut(duration: 0.42), value: text)
-        .accessibilityElement(children: .combine)
+        .rotationEffect(controlRotation)
+        .allowsHitTesting(false)
         .transition(.opacity)
     }
 
-    private func savedDestinationsLine(_ destinations: [String]) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 11, weight: .bold))
-
-            Text("Saved to Vault")
-
-            ForEach(destinations.filter { $0 != "Vault" }, id: \.self) { destination in
-                Text("+ \(destination)")
-                    .transition(
-                        .asymmetric(
-                            insertion: .opacity.combined(with: .offset(x: -6)),
-                            removal: .opacity
-                        )
-                    )
-            }
+    private func landscapeStatusCapsule<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        HStack(spacing: 7) {
+            content()
         }
-        .frame(maxWidth: .infinity, minHeight: 20)
         .font(.subheadline.weight(.semibold))
-        .foregroundStyle(.green)
+        .foregroundStyle(.white)
         .lineLimit(1)
-        .minimumScaleFactor(0.82)
-        .shadow(color: .black.opacity(0.85), radius: 3)
-        .animation(.easeInOut(duration: 0.5), value: destinations)
+        .minimumScaleFactor(0.78)
+        .padding(.horizontal, 13)
+        .padding(.vertical, 9)
+        .background(.black.opacity(0.58), in: Capsule())
+        .overlay {
+            Capsule()
+                .stroke(.white.opacity(0.16), lineWidth: 0.5)
+        }
+        .shadow(color: .black.opacity(0.45), radius: 5, y: 2)
         .accessibilityElement(children: .combine)
-        .transition(.opacity)
     }
 
     private func noticeIcon(for tone: CaptureNotice.Tone) -> String? {
@@ -269,6 +290,7 @@ struct CaptureView: View {
                 .font(.caption.weight(.black))
                 .tracking(0.5)
                 .foregroundStyle(.red)
+                .rotationEffect(controlRotation)
                 .frame(width: 54, height: 54)
                 .background(.ultraThinMaterial, in: Circle())
                 .contentShape(Circle())
@@ -314,9 +336,11 @@ struct CaptureView: View {
                 if camera.isChangingMode {
                     ProgressView()
                         .controlSize(.small)
+                        .rotationEffect(controlRotation)
                 } else {
                     Image(systemName: camera.selectedMode.systemImage)
                         .font(.system(size: 21, weight: .semibold))
+                        .rotationEffect(controlRotation)
                 }
             }
             .contentShape(Circle())
@@ -352,6 +376,43 @@ struct CaptureView: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 36)
+        }
+    }
+
+    private func updateControlOrientation(_ orientation: UIDeviceOrientation) {
+        guard !camera.isRecording else { return }
+
+        let targetRotation: Angle
+        let isLandscape: Bool
+        let statusOnLeadingEdge: Bool
+
+        switch orientation {
+        case .portrait:
+            targetRotation = .zero
+            isLandscape = false
+            statusOnLeadingEdge = false
+        case .portraitUpsideDown:
+            targetRotation = .degrees(180)
+            isLandscape = false
+            statusOnLeadingEdge = false
+        case .landscapeLeft:
+            targetRotation = .degrees(90)
+            isLandscape = true
+            statusOnLeadingEdge = false
+        case .landscapeRight:
+            targetRotation = .degrees(-90)
+            isLandscape = true
+            statusOnLeadingEdge = true
+        case .faceUp, .faceDown, .unknown:
+            return
+        @unknown default:
+            return
+        }
+
+        withAnimation(.easeInOut(duration: 0.35)) {
+            controlRotation = targetRotation
+            controlsAreLandscape = isLandscape
+            landscapeStatusOnLeadingEdge = statusOnLeadingEdge
         }
     }
 

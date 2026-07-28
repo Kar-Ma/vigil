@@ -11,13 +11,15 @@ nonisolated final class VigilMovieRecorder: @unchecked Sendable {
         outputURL: URL,
         videoSettings: [String: Any],
         audioSettings: [String: Any],
-        metadata: RecordingCaptureMetadata
+        metadata: RecordingCaptureMetadata,
+        videoTransform: CGAffineTransform
     ) throws {
         assetWriter = try AVAssetWriter(url: outputURL, fileType: .mov)
         assetWriter.metadata = metadata.avMetadataItems
 
         videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoSettings)
         videoInput.expectsMediaDataInRealTime = true
+        videoInput.transform = videoTransform
 
         audioInput = AVAssetWriterInput(mediaType: .audio, outputSettings: audioSettings)
         audioInput.expectsMediaDataInRealTime = true

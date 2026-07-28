@@ -50,7 +50,11 @@ nonisolated final class PiPVideoMixer {
         return true
     }
 
-    func mix(fullScreen: CVPixelBuffer, pictureInPicture: CVPixelBuffer) -> CVPixelBuffer? {
+    func mix(
+        fullScreen: CVPixelBuffer,
+        pictureInPicture: CVPixelBuffer,
+        pictureInPictureRotationAngle: CGFloat
+    ) -> CVPixelBuffer? {
         guard let outputPool else { return nil }
         var outputBuffer: CVPixelBuffer?
         guard CVPixelBufferPoolCreatePixelBuffer(kCFAllocatorDefault, outputPool, &outputBuffer) == kCVReturnSuccess,
@@ -58,8 +62,12 @@ nonisolated final class PiPVideoMixer {
 
         let fullImage = CIImage(cvPixelBuffer: fullScreen)
         let canvas = fullImage.extent
-        let pipImage = Self.normalizedPictureInPicture(
+        let rotatedPip = Self.rotated(
             CIImage(cvPixelBuffer: pictureInPicture),
+            byDegrees: pictureInPictureRotationAngle
+        )
+        let pipImage = Self.normalizedPictureInPicture(
+            rotatedPip,
             for: canvas
         )
 
@@ -90,6 +98,21 @@ nonisolated final class PiPVideoMixer {
 
         context.render(composed, to: outputBuffer, bounds: canvas, colorSpace: colorSpace)
         return outputBuffer
+    }
+
+    static func rotated(_ image: CIImage, byDegrees angle: CGFloat) -> CIImage {
+        let normalizedAngle = angle.truncatingRemainder(dividingBy: 360)
+        guard abs(normalizedAngle) > 0.01 else { return image }
+
+        let rotatedImage = image.transformed(
+            by: CGAffineTransform(rotationAngle: normalizedAngle * .pi / 180)
+        )
+        return rotatedImage.transformed(
+            by: CGAffineTransform(
+                translationX: -rotatedImage.extent.minX,
+                y: -rotatedImage.extent.minY
+            )
+        )
     }
 
     static func normalizedPictureInPicture(_ image: CIImage, for canvas: CGRect) -> CIImage {

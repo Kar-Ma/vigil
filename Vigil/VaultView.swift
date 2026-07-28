@@ -235,10 +235,10 @@ private struct RecordingRow: View {
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.orange)
                 } else {
-                    Label(
-                        model.protectionTitle(for: recording),
-                        systemImage: "lock.shield.fill"
-                    )
+                    HStack(spacing: 5) {
+                        Image(systemName: "lock.shield.fill")
+                        Text(model.protectionTitle(for: recording))
+                    }
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.green)
                 }

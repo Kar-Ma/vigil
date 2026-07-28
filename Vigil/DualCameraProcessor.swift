@@ -13,6 +13,7 @@ nonisolated final class DualCameraProcessor: NSObject,
     private var currentFrontSampleBuffer: CMSampleBuffer?
     private var recorder: VigilMovieRecorder?
     private var recordingMode: RecordingMode = .rear
+    private var pictureInPictureRotationAngle: CGFloat = 0
 
     override init() {
         super.init()
@@ -45,7 +46,12 @@ nonisolated final class DualCameraProcessor: NSObject,
         }
     }
 
-    func startRecording(to outputURL: URL, metadata: RecordingCaptureMetadata) throws {
+    func startRecording(
+        to outputURL: URL,
+        metadata: RecordingCaptureMetadata,
+        videoRotationAngle: CGFloat,
+        pictureInPictureRotationAngle: CGFloat
+    ) throws {
         try outputQueue.sync {
             let activeVideoOutput = recordingMode == .front ? frontVideoOutput : backVideoOutput
             guard let videoSettings = activeVideoOutput.recommendedVideoSettingsForAssetWriter(
@@ -58,12 +64,16 @@ nonisolated final class DualCameraProcessor: NSObject,
             }
 
             currentFrontSampleBuffer = nil
+            self.pictureInPictureRotationAngle = pictureInPictureRotationAngle
             mixer.reset()
             recorder = try VigilMovieRecorder(
                 outputURL: outputURL,
                 videoSettings: videoSettings,
                 audioSettings: audioSettings,
-                metadata: metadata
+                metadata: metadata,
+                videoTransform: CGAffineTransform(
+                    rotationAngle: videoRotationAngle * .pi / 180
+                )
             )
         }
     }
@@ -97,7 +107,8 @@ nonisolated final class DualCameraProcessor: NSObject,
 
         guard let mixedBuffer = mixer.mix(
             fullScreen: fullScreenBuffer,
-            pictureInPicture: frontBuffer
+            pictureInPicture: frontBuffer,
+            pictureInPictureRotationAngle: pictureInPictureRotationAngle
         ),
         let outputDescription = mixer.outputFormatDescription,
         let mixedSampleBuffer = makeSampleBuffer(
