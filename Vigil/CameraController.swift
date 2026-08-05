@@ -155,15 +155,18 @@ final class CameraController: NSObject, ObservableObject {
                 movieOutput.startRecording(to: url, recordingDelegate: self)
             }
             isRecording = true
+            UIApplication.shared.isIdleTimerDisabled = true
             recordingStartedAt = startedAt
             shouldResumeAfterInterruption = false
         } catch {
+            UIApplication.shared.isIdleTimerDisabled = false
             readiness = .failed(error.localizedDescription)
         }
     }
 
     func stopRecording() {
         guard isRecording else { return }
+        UIApplication.shared.isIdleTimerDisabled = false
 
         if isDualCameraSupported {
             isRecording = false
@@ -184,6 +187,7 @@ final class CameraController: NSObject, ObservableObject {
 
     func appWillLeaveForeground() {
         isAppActive = false
+        UIApplication.shared.isIdleTimerDisabled = false
         protectActiveRecordingFromInterruption()
     }
 
@@ -505,6 +509,7 @@ final class CameraController: NSObject, ObservableObject {
     }
 
     private func finishRecording(_ result: Result<URL, Error>) {
+        UIApplication.shared.isIdleTimerDisabled = false
         isRecording = false
         isFinalizing = false
         recordingStartedAt = nil
