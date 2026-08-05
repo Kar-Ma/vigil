@@ -643,7 +643,10 @@ struct SettingsView: View {
         let version = Bundle.main.object(
             forInfoDictionaryKey: "CFBundleShortVersionString"
         ) as? String ?? "1.0"
-        return "Version \(version)"
+        let build = Bundle.main.object(
+            forInfoDictionaryKey: "CFBundleVersion"
+        ) as? String ?? "1"
+        return "\(version) (\(build))"
     }
 
     private func alwaysOnRow(icon: String, color: Color, title: String, detail: String) -> some View {

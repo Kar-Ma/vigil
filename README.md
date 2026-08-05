@@ -10,7 +10,7 @@ The project is being developed in public so its privacy and security claims can 
 
 ## TestFlight beta
 
-[Join the Vigil beta on TestFlight](https://testflight.apple.com/join/5E5Cywaw). Vigil 1.0 (build 5) is currently awaiting App Store review.
+[Join the public Vigil beta on TestFlight](https://testflight.apple.com/join/5E5Cywaw).
 
 ## Current MVP
 
