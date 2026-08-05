@@ -163,7 +163,7 @@ struct SettingsView: View {
                 } header: {
                     Text("About")
                 } footer: {
-                    Text("Vigil \(appVersion)")
+                    Text("Vigil · Version \(appVersion)")
                 }
             }
             .navigationTitle("Settings")
