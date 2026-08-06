@@ -44,6 +44,7 @@ The project is being developed in public so its privacy and security claims can 
 - Screen Curtain is display privacy, not invisible recording. The recording timer, stop control, and iOS camera or microphone privacy indicator remain visible, and local recording laws still apply.
 - Action Button recording requires a one-time assignment in iPhone Settings. The iPhone may require an unlock, and camera and microphone permissions must already be granted.
 - iOS does not allow Vigil to record video during an active phone call. Vigil protects the pre-call clip and resumes into a new clip after the call ends, leaving an unavoidable gap during the call.
+- **China mainland availability:** After Apple’s August 6, 2026 App Review message for version 1.0 (5), China mainland was removed from distribution because Apple requires CallKit to be deactivated for apps available there. Vigil uses CallKit only to observe active calls so it can handle recording interruptions and recover camera capture afterward; it does not offer VoIP calling. Hong Kong and Macau remain selected regions.
 - The SOS handoff defaults to `911`; users should set the correct emergency number for their region in Vigil Settings. Vigil does not replace the iPhone's built-in Emergency SOS.
 - The Vault authentication screen is an in-app access barrier, not a claim of tamper-proof or forensic-grade storage.
 - Deleting Vigil also deletes its local Vault. Camera Roll, Google Drive, and iCloud Drive copies remain separately accessible and deletable in those services.
