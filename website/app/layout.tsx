@@ -3,21 +3,22 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://keep-vigil.vercel.app"),
-  title: "Vigil — Stay close to what matters",
-  description: "An open-source iOS safety app for recording important moments and making completed recordings harder to lose or casually access.",
+  title: "Vigil: Secure Camera — Available on the App Store",
+  description: "Download Vigil, an open-source iOS safety camera for recording important moments and keeping completed recordings under your control.",
   icons: { icon: "/vigil-icon.png", shortcut: "/vigil-icon.png" },
   alternates: { canonical: "/" },
+  itunes: { appId: "6793280070" },
   openGraph: {
-    title: "Vigil — Stay close to what matters",
-    description: "An open-source iOS safety app for recording important moments and making completed recordings harder to lose or casually access.",
+    title: "Vigil: Secure Camera — Available on the App Store",
+    description: "Download Vigil, an open-source iOS safety camera for recording important moments and keeping completed recordings under your control.",
     url: "/",
     siteName: "Vigil",
     images: ["/vigil-icon.png"],
   },
   twitter: {
     card: "summary",
-    title: "Vigil — Stay close to what matters",
-    description: "An open-source iOS safety app for recording important moments and making completed recordings harder to lose or casually access.",
+    title: "Vigil: Secure Camera — Available on the App Store",
+    description: "Download Vigil, an open-source iOS safety camera for recording important moments and keeping completed recordings under your control.",
     images: ["/vigil-icon.png"],
   },
 };

@@ -8,9 +8,11 @@ In a stressful encounter, a person may need to record quickly while worrying tha
 
 The project is being developed in public so its privacy and security claims can be inspected rather than taken on trust.
 
-## TestFlight beta
+## Download
 
-[Join the public Vigil beta on TestFlight](https://testflight.apple.com/join/5E5Cywaw).
+[Download Vigil: Secure Camera free on the App Store](https://apps.apple.com/us/app/vigil-secure-camera/id6793280070).
+
+Vigil 1.0 launched on August 20, 2026. People who want to help test upcoming changes can still [join the public TestFlight](https://testflight.apple.com/join/5E5Cywaw).
 
 ## Current MVP
 
